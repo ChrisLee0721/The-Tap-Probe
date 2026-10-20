@@ -938,21 +938,30 @@ static float sim_rand01(void)
 /* Synthesise a plausible-looking feature set.  The distribution is shaped so
  * that the classifier boundary is exercised on both sides, which is the whole
  * point of simulation: it lets the MQTT path and the dashboard be demonstrated
- * end-to-end before the transducer chain exists. */
+ * end-to-end before the transducer chain exists.
+ *
+ * The values follow the direction documented in probe_config.h: a hollow rings
+ * with its plate mode INSIDE the band, so its band_ratio_lh is LOW and its
+ * f_peak is a real in-band resonance; a bonded point has nothing modal in band,
+ * so its band_ratio_lh is HIGH and its f_peak is the strike transient near the
+ * band floor.  Getting this pair the wrong way round makes the simulation
+ * demonstrate the opposite of what the hardware does. */
 static void sim_features(probe_features_t *f, probe_accel_t *a)
 {
     bool hollow = sim_rand01() < 0.35f;
     float jitter = (sim_rand01() - 0.5f) * 0.10f;
 
     if (hollow) {
-        f->f_peak_hz     = 520.0f  + sim_rand01() * 260.0f;
-        f->f_centroid_hz = 880.0f  + sim_rand01() * 300.0f;
-        f->band_ratio_lh = 0.78f   + jitter;
+        /* Mode in band: ratio driven down, peak is the resonance itself. */
+        f->f_peak_hz     = 900.0f  + sim_rand01() * 2400.0f;
+        f->f_centroid_hz = 1900.0f + sim_rand01() * 900.0f;
+        f->band_ratio_lh = 0.10f   + jitter;
         f->decay_tau_ms  = 24.0f   + sim_rand01() * 16.0f;
     } else {
-        f->f_peak_hz     = 1350.0f + sim_rand01() * 900.0f;
-        f->f_centroid_hz = 1900.0f + sim_rand01() * 700.0f;
-        f->band_ratio_lh = 0.28f   + jitter;
+        /* Nothing modal in band: transient at the floor, ratio high. */
+        f->f_peak_hz     = 320.0f  + sim_rand01() * 120.0f;
+        f->f_centroid_hz = 1200.0f + sim_rand01() * 500.0f;
+        f->band_ratio_lh = 0.79f   + jitter;
         f->decay_tau_ms  = 6.0f    + sim_rand01() * 7.0f;
     }
     f->peak_au      = 0.55f + sim_rand01() * 0.40f;
@@ -968,10 +977,23 @@ static void sim_features(probe_features_t *f, probe_accel_t *a)
 /* =========================================================================
  * Classification -- local, deliberately simple, and documented as such.
  *
- * The rule is a two-condition box test:
- *   G2 (debonding indicated) if band_ratio_lh >= TH_RATIO_G2 AND f_peak <= TH_FPEAK_G2
- *   G0 (no indication)       if band_ratio_lh <= TH_RATIO_G0 AND f_peak >= TH_FPEAK_G0
+ * The rule is a two-condition box test.  Repeating the direction note from
+ * probe_config.h because getting it backwards inverts the instrument: a debond
+ * puts its plate mode ABOVE the 1 kHz crossover, so it drives `band_ratio_lh`
+ * DOWN (bonded ~0.80, debonded ~0.03..0.19).
+ *
+ *   G2 (debonding indicated) if band_ratio_lh <= TH_RATIO_G2 AND f_peak >= TH_FPEAK_G2
+ *   G0 (no indication)       if band_ratio_lh >= TH_RATIO_G0 AND f_peak <= TH_FPEAK_G0
  *   otherwise G1 (uncertain / re-test)
+ *
+ * The two boxes are disjoint by construction: TH_RATIO_G2 (0.45) is below
+ * TH_RATIO_G0 (0.70), so no reading can satisfy both, and the band between them
+ * is G1.  The G2 f_peak bound sits at the band floor and is deliberately
+ * non-binding; see probe_config.h for why a tight one would veto the small end.
+ *
+ * BLIND SPOT: this detects a mode that has come down INTO 1..15 kHz.  A debond
+ * whose mode has fallen BELOW the 1 kHz crossover reads as bonded again
+ * (~34 cm and up on 20 mm render).  The rule is a window, not a severity scale.
  *
  * confidence is the normalised distance from the decision boundary, NOT a
  * probability.  It is a heuristic margin in 0..1 and must be described as such
@@ -1000,10 +1022,13 @@ static const char *classify(const probe_features_t *f, float *confidence)
     const float RATIO_SPAN = 0.25f;
     const float FPEAK_SPAN = 700.0f;
 
-    float margin_g2 = fminf((f->band_ratio_lh - thr_r2) / RATIO_SPAN,
-                            (thr_f2 - f->f_peak_hz) / FPEAK_SPAN);
-    float margin_g0 = fminf((thr_r0 - f->band_ratio_lh) / RATIO_SPAN,
-                            (f->f_peak_hz - thr_f0) / FPEAK_SPAN);
+    /* Both margins are "how far inside the box", so each is >= 0 exactly when
+     * its grade's conditions hold.  Note the ratio terms run the opposite way
+     * for the two grades: a debond is a LOW ratio, a bonded point a HIGH one. */
+    float margin_g2 = fminf((thr_r2 - f->band_ratio_lh) / RATIO_SPAN,
+                            (f->f_peak_hz - thr_f2) / FPEAK_SPAN);
+    float margin_g0 = fminf((f->band_ratio_lh - thr_r0) / RATIO_SPAN,
+                            (thr_f0 - f->f_peak_hz) / FPEAK_SPAN);
 
     if (margin_g2 >= 0.0f && margin_g2 >= margin_g0) {
         *confidence = clamp01(0.5f + margin_g2 * 0.5f);
@@ -1170,6 +1195,41 @@ static EventGroupHandle_t s_wifi_eg;
 #define WIFI_BIT_FAIL       BIT1
 
 static int s_wifi_retry = 0;
+static esp_timer_handle_t s_wifi_retry_timer = NULL;
+
+/* Reconnect from a TIMER, not from inside the event handler.
+ *
+ * The handler below runs on the system event task, which is also the task that
+ * delivers every other default-loop event (IP acquisition, MQTT's socket
+ * events, the SNTP callback).  Sleeping there for the backoff would stall all
+ * of them -- at the maximum backoff, for a full 60 s, and the log lines from
+ * the MQTT task would simply stop appearing while it happened.  The timer
+ * callback runs on the esp_timer task and touches nothing but esp_wifi_connect().
+ */
+static void wifi_retry_cb(void *arg)
+{
+    (void)arg;
+    esp_wifi_connect();
+}
+
+static void wifi_retry_schedule(int delay_ms)
+{
+    if (s_wifi_retry_timer == NULL) {
+        const esp_timer_create_args_t args = {
+            .callback = &wifi_retry_cb,
+            .dispatch_method = ESP_TIMER_TASK,
+            .name = "wifi_retry",
+        };
+        if (esp_timer_create(&args, &s_wifi_retry_timer) != ESP_OK) {
+            /* Cannot schedule: fall back to an immediate retry rather than
+             * dropping the reconnection entirely. */
+            esp_wifi_connect();
+            return;
+        }
+    }
+    esp_timer_stop(s_wifi_retry_timer);      /* no-op if not running */
+    esp_timer_start_once(s_wifi_retry_timer, (uint64_t)delay_ms * 1000ULL);
+}
 
 static void wifi_event_handler(void *arg, esp_event_base_t base, int32_t id, void *data)
 {
@@ -1184,8 +1244,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t base, int32_t id, voi
             if (delay_ms > PROBE_WIFI_BACKOFF_MAX_MS) delay_ms = PROBE_WIFI_BACKOFF_MAX_MS;
             ESP_LOGW(TAG_WIFI, "disconnected, retry %d/%d in %d ms",
                      s_wifi_retry, PROBE_WIFI_MAX_RETRY, delay_ms);
-            vTaskDelay(pdMS_TO_TICKS(delay_ms));
-            esp_wifi_connect();
+            wifi_retry_schedule(delay_ms);
         } else {
             ESP_LOGE(TAG_WIFI, "giving up after %d retries; will retry on the next "
                                "supervised round", PROBE_WIFI_MAX_RETRY);
@@ -1388,6 +1447,22 @@ static esp_err_t mqtt_start(void)
         return ESP_ERR_INVALID_STATE;
     }
 
+    /* Refuse a plaintext URI.  The report's security position (Ch. 7.4) is that
+     * the device validates the broker with the CA bundle and that credentials
+     * never cross the air in the clear; an `mqtt://` URI silently voids both,
+     * with no error raised anywhere -- the connection just succeeds and
+     * everything is readable.  That is exactly the "verification silently
+     * disabled" failure the project warns about, so it is a hard error here
+     * rather than a warning.  For a lab broker use `mqtts://` with the CA in
+     * the bundle; see README A.8. */
+    if (strncmp(s_cfg.mqtt_uri, "mqtts://", 8) != 0) {
+        ESP_LOGE(TAG_MQTT, "refusing broker URI '%s': it is not mqtts://. "
+                           "Plaintext MQTT would send the device credentials and "
+                           "the survey data unencrypted. Reprovision with an "
+                           "mqtts:// URI.", s_cfg.mqtt_uri);
+        return ESP_ERR_INVALID_ARG;
+    }
+
     snprintf(s_topic_meas,   sizeof(s_topic_meas),   "%s/%s/%s",
              PROBE_TOPIC_BASE, s_cfg.dev_id, PROBE_TOPIC_MEASUREMENT);
     snprintf(s_topic_status, sizeof(s_topic_status), "%s/%s/%s",
@@ -1582,8 +1657,14 @@ static void do_measurement(probe_result_t *r)
         return;
     }
 
-    /* Give the reader a moment to get into its blocking read. */
-    vTaskDelay(pdMS_TO_TICKS(2));
+    /* Give the reader a moment to get into its blocking read.
+     *
+     * This IS the strike lead PROBE_STRIKE_LEAD_US describes, and it must be a
+     * real delay, not a round-down to zero: the reader runs at a LOWER priority
+     * than this task, so a zero-tick delay never yields and the reader may not
+     * be inside i2s_channel_read() when the solenoid fires.  The tick-rate
+     * guard below makes that a build error rather than a silent one. */
+    vTaskDelay(pdMS_TO_TICKS(PROBE_STRIKE_LEAD_US / 1000));
 
     /* 4. Strike.  sol_strike() returns once the pulse has been de-asserted, so
      *    the auxiliary accelerometer window opens about PROBE_STRIKE_PULSE_MS
@@ -1616,23 +1697,39 @@ static void do_measurement(probe_result_t *r)
     /* 5. Auxiliary contact-quality channel, sampled around the strike. */
     accel_capture(&r->aux);
 
-    /* 6. Wait for the capture, bounded. */
+    /* 6. Wait for the capture, bounded.
+     *
+     * In SIMULATION mode the features do not come from the microphone at all,
+     * so a missing or unwired mic must NOT abort the measurement -- the entire
+     * point of the mode is to exercise the MQTT and dashboard paths before the
+     * transducer chain exists (README A.9).  The wait is still performed, so
+     * the real system's timing is what gets demonstrated, and the strike
+     * interlock above still applies.  The failure is recorded in the event flag
+     * rather than swallowed. */
     int64_t t0 = esp_timer_get_time();
     while (!s_cap_ctx.done && (esp_timer_get_time() - t0) <
                           (int64_t)PROBE_CAPTURE_TIMEOUT_MS * 1000 + 200000) {
         vTaskDelay(pdMS_TO_TICKS(5));
     }
-    if (!s_cap_ctx.done) {
-        ESP_LOGE(TAG_MAIN, "capture reader did not finish in time");
-        strlcpy(r->event_flag, "capture_timeout", sizeof(r->event_flag));
-        mqtt_publish_event("capture_timeout", "i2s read did not complete");
-        return;
-    }
-    if (s_cap_ctx.err != ESP_OK) {
-        strlcpy(r->event_flag, "capture_fail", sizeof(r->event_flag));
-        ESP_LOGE(TAG_MAIN, "capture failed: %s", esp_err_to_name(s_cap_ctx.err));
-        mqtt_publish_event("capture_fail", esp_err_to_name(s_cap_ctx.err));
-        return;
+    bool capture_ok = s_cap_ctx.done && (s_cap_ctx.err == ESP_OK);
+    if (!r->simulated) {
+        if (!s_cap_ctx.done) {
+            ESP_LOGE(TAG_MAIN, "capture reader did not finish in time");
+            strlcpy(r->event_flag, "capture_timeout", sizeof(r->event_flag));
+            mqtt_publish_event("capture_timeout", "i2s read did not complete");
+            return;
+        }
+        if (s_cap_ctx.err != ESP_OK) {
+            strlcpy(r->event_flag, "capture_fail", sizeof(r->event_flag));
+            ESP_LOGE(TAG_MAIN, "capture failed: %s", esp_err_to_name(s_cap_ctx.err));
+            mqtt_publish_event("capture_fail", esp_err_to_name(s_cap_ctx.err));
+            return;
+        }
+    } else if (!capture_ok) {
+        strlcpy(r->event_flag, "capture_fail_sim", sizeof(r->event_flag));
+        ESP_LOGW(TAG_MAIN, "SIMULATION: capture unusable (%s); features are "
+                           "synthesised anyway",
+                 s_cap_ctx.done ? esp_err_to_name(s_cap_ctx.err) : "timeout");
     }
 
     /* 7. Features. */
@@ -1699,7 +1796,14 @@ static void measurement_task(void *arg)
 
         /* Supervised reconnect: if the broker link is down, try again on a slow
          * cadence.  esp-mqtt also reconnects internally; this is the belt-and-
-         * braces path for "gave up" states and for the case where IP was lost. */
+         * braces path for "gave up" states and for the case where IP was lost.
+         *
+         * This is ALSO what recovers a probe that booted with no WiFi.  In that
+         * case mqtt_start() was never reached and s_mqtt is NULL, so the old
+         * `if (s_mqtt)` guard made this loop a permanent no-op and the probe
+         * stayed silent forever even after the AP came back -- while the boot
+         * log promised "publishing resumes on reconnect".  Now the link is
+         * brought up here as soon as an IP is held. */
         if (!s_mqtt_connected) {
             static int64_t next_try = 0;
             int64_t now = esp_timer_get_time();
@@ -1708,6 +1812,14 @@ static void measurement_task(void *arg)
                 if (s_mqtt) {
                     ESP_LOGW(TAG_MQTT, "supervised reconnect attempt");
                     esp_mqtt_client_reconnect(s_mqtt);
+                } else if (s_wifi_eg &&
+                           (xEventGroupGetBits(s_wifi_eg) & WIFI_BIT_CONNECTED)) {
+                    ESP_LOGW(TAG_MQTT, "no MQTT client yet (booted without WiFi?); "
+                                       "starting one now");
+                    time_sync();          /* cheap no-op if the clock is already set */
+                    if (mqtt_start() != ESP_OK) {
+                        ESP_LOGE(TAG_MQTT, "MQTT start failed on the supervised path");
+                    }
                 }
             }
         }
@@ -1778,7 +1890,7 @@ static void console_status(void)
     printf("mic           : %s\n", s_mic_ok ? "ok" : "FAILED");
     printf("accel         : %s (auxiliary)\n", s_accel_ok ? "ok" : "FAILED");
     printf("simulation    : %s\n", s_simulation ? "ON -- DATA IS SYNTHETIC" : "off");
-    printf("thresholds    : G2 r>=%.3f f<=%.0f Hz | G0 r<=%.3f f>=%.0f Hz\n",
+    printf("thresholds    : G2 r<=%.3f f>=%.0f Hz | G0 r>=%.3f f<=%.0f Hz\n",
            s_cfg.th_ratio_g2, s_cfg.th_fpeak_g2, s_cfg.th_ratio_g0, s_cfg.th_fpeak_g0);
     printf("strikes total : %" PRIu32 "  (refused by interlock: %" PRIu32 ")\n",
            (uint32_t)s_strikes_total, (uint32_t)s_strikes_refused);
@@ -1824,15 +1936,24 @@ static void console_calibrate(void)
            "     the surface, minimum interval respected.\n"
            "  2. Repeat on the debonded panel.\n"
            "  3. `dump` each result and record band_ratio_lh and f_peak_hz.\n"
-           "  4. Put the debonded population's low edge and the good\n"
-           "     population's high edge where they separate:\n"
+           "  4. The two populations separate in OPPOSITE directions:\n"
+           "       the GOOD panel has the HIGH band_ratio_lh (~0.8)\n"
+           "       the DEBONDED panel has the LOW  band_ratio_lh (~0.03-0.2)\n"
+           "     because a debond's plate mode enters the 1..15 kHz band and\n"
+           "     pushes energy ABOVE the 1 kHz crossover.\n"
+           "     Set the cut between them:\n"
            "       set th <band_ratio> <fpeak_hz>\n"
-           "     with band_ratio just BELOW the debonded floor and fpeak_hz\n"
-           "     just ABOVE the debonded ceiling.\n"
+           "     with band_ratio just ABOVE the debonded ceiling (i.e. below\n"
+           "     the good panel's floor) and fpeak_hz at the band floor, 300 Hz.\n"
+           "     The fpeak condition is >=, and 300 Hz is satisfied by any\n"
+           "     in-band peak, so it acts as a floor check rather than a veto.\n"
            "  5. Re-run both panels. Count the misclassifications and quote\n"
            "     them in the report. If the two populations overlap, the\n"
            "     honest answer is that the two-condition rule cannot separate\n"
            "     them on this sample set.\n\n"
+           "A debond larger than about 34 cm reads as BONDED again, because its\n"
+           "mode falls below the 1 kHz crossover. This rule is a size window,\n"
+           "not a severity scale. See probe_config.h.\n\n"
            "The accelerometer is NOT used in calibration. It only tells you\n"
            "whether the operator's contact was consistent between panels.\n\n");
 }
@@ -1882,7 +2003,7 @@ static void console_task(void *arg)
                     s_cfg.th_fpeak_g2 = fpk;
                     xSemaphoreGive(s_cfg_lock);
                     nvs_save_thresholds();
-                    printf("G2 thresholds set: band_ratio>=%.3f, f_peak<=%.0f Hz (saved)\n",
+                    printf("G2 thresholds set: band_ratio<=%.3f, f_peak>=%.0f Hz (saved)\n",
                            ratio, fpk);
                     mqtt_publish_event("threshold_change", "console set th");
                 }

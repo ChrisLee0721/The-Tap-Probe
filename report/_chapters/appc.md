@@ -119,10 +119,18 @@ This procedure is what makes the measurement valid. **A single tap in isolation 
 **What the operator must be told**, in the operating document and in training:
 
 - The instrument cannot see debonds smaller than roughly 10 cm in tile or render, or 15 cm in stone.
-  **A clean survey is not a certificate of soundness.** *The floor is not a single number*: it scales as
-  $\sqrt{h}$ with the finish thickness (§5.5.2, Table 5.8), so the same instrument has a 10.7 cm floor on
-  a 30 mm render and a 4.4 cm floor on a 5 mm one. Record the finish construction if it is known, and
-  never quote the floor for a building whose build-up has not been established.
+  **A clean survey is not a certificate of soundness at either end of the size range.** *The floor is not
+  a single number*: it scales as $\sqrt{h}$ with the finish thickness (§5.5.2, Table 5.8), so the same
+  instrument has a 10.7 cm floor on a 30 mm render and a 4.4 cm floor on a 5 mm one. Record the finish
+  construction if it is known, and never quote the floor for a building whose build-up has not been
+  established.
+- **The instrument is also blind to very large debonds, and this is the counter-intuitive half.** The
+  detection test asks whether a mode has come down *into* the 1–15 kHz band. A debond big enough for its
+  mode to fall below the 1 kHz crossover reads as bonded again — on 20 mm render that is roughly 34 cm
+  and up (§9.2). So the rule responds to a *size window*, not to severity, and **the largest and most
+  dangerous separations are the ones most likely to read clean**. An operator who understands only the
+  small-debond limit will read a clean large panel as sound, which is exactly the wrong inference. If a
+  survey region is visually suspect, tap it and treat the reading as advisory at any size.
 - The reading is relative to the session's reference. Moving to another building requires a new
   reference.
 - A suspect reading requires a manual re-inspection. The instrument narrows the search; it does not

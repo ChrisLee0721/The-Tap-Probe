@@ -306,7 +306,7 @@ Chapter 8 tests each feature; this section states what each is *for*, which is w
 |---|---|---|---|
 | `f_peak_hz` | Frequency of maximum magnitude in 300 Hz–15 kHz | Locates the wall mode; the primary size indicator | Falls as $1/a^2$ for debonds above the size floor; uninformative below it (P3) |
 | `f_centroid_hz` | Magnitude-weighted spectral centroid over the band | Robust proxy for the spectral balance; less sensitive to a single noisy bin than `f_peak` | Tracks `f_peak` but with lower variance |
-| `band_ratio_lh` | Energy below 1 kHz / energy above 1 kHz | Detects the *presence* of a wall mode without needing to locate it; the most robust severity indicator | Rises with severity once the mode enters the band (P4) |
+| `band_ratio_lh` | Energy below 1 kHz / energy above 1 kHz | Detects the *presence* of a wall mode without needing to locate it; the **primary detection channel**, because a mode entering the band moves energy past the crossover whether or not it becomes the argmax | **Falls** as the mode enters the band from above (§8.7 P4 corrects the sign this table originally predicted) |
 | `decay_tau_ms` | Log-linear fit to the envelope | Damping/ring-time | Useful **only** for tile at large diameters; a dead channel for render and stone (P5) |
 
 **A correction to an earlier version of this section, because it changed the answer.** This section

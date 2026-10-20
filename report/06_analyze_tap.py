@@ -414,6 +414,7 @@ class LoadReport:
     notes: List[str] = field(default_factory=list)
     duplicates: int = 0
     out_of_range: Dict[str, int] = field(default_factory=dict)
+    missing: Dict[str, int] = field(default_factory=dict)
     waveform_fs_hz: Optional[float] = None
 
     def drop(self, reason: str, count: int) -> None:
@@ -1144,11 +1145,26 @@ def run_integrity_checks(df: "pd.DataFrame", rep: LoadReport) -> IntegrityResult
     masks = []
     for feat, (_unit, lo, hi) in FEATURE_BOUNDS.items():
         col = pd.to_numeric(work[feat], errors="coerce")
-        bad = ((col < lo) | (col > hi)).fillna(True)      # non-finite is bad
-        # Per-feature counters overlap (one row can fail two bounds), so they
-        # feed the per-feature table only. The *row* total is counted once.
-        rep.out_of_range[feat] = int(bad.sum())
-        masks.append(bad.to_numpy())
+        # Two DIFFERENT conditions, deliberately not conflated.
+        #
+        #   out of range : the cell parsed to a number that cannot be real
+        #                  (a unit mix-up, a truncated log line). Corrupt.
+        #   missing      : the cell is NaN. NOT corrupt -- in waveform mode
+        #                  `impact_peak_g` is NaN by construction, because it
+        #                  is not recoverable from audio alone, and a fit can
+        #                  decline to produce `decay_tau_ms`.
+        #
+        # An earlier version wrote `.fillna(True)` here with the comment
+        # "non-finite is bad". That never fired: NaN compares False against both
+        # bounds, so `(col < lo) | (col > hi)` is False for a NaN and there is
+        # nothing to fill. Making it actually fire would have been worse, not
+        # better -- it would drop every waveform-mode row as corrupt. The two
+        # counts are therefore reported separately and neither is silent.
+        oor = (col < lo) | (col > hi)
+        nan = col.isna()
+        rep.out_of_range[feat] = int(oor.sum())
+        rep.missing[feat] = int(nan.sum())
+        masks.append(oor.to_numpy())
     any_bad = np.logical_or.reduce(masks) if masks else np.zeros(len(work), bool)
     n_oor = int(any_bad.sum())
     if n_oor:
@@ -1510,11 +1526,11 @@ def _fit_curvature_fixed_B(x: np.ndarray, y: np.ndarray,
                            b0: float) -> Tuple[float, float]:
     """OLS of y = A*x + B with the intercept **fixed** at b0 = f_found^2.
 
-    The free two-parameter fit is ill-conditioned on three collinear radii: it
-    trades a large B against a large A along the body of the data and can put A
-    on the wrong side of zero. The physics supplies B, so the honest test of
-    the curvature coefficient A is the one-parameter regression that follows
-    once B is fixed:
+    The free two-parameter fit is ill-conditioned on a handful of collinear
+    radii: it trades a large B against a large A along the body of the data and
+    can put A on the wrong side of zero. The physics supplies B, so the honest
+    test of the curvature coefficient A is the one-parameter regression that
+    follows once B is fixed:
         A = sum(x (y - b0)) / sum(x^2),   x = 1/a^4,  y = f_peak^2.
     Returns (A, R^2) with R^2 relative to mean(y), so it is comparable with the
     free fit's R^2 on the same points.
@@ -1800,8 +1816,22 @@ def _fold_iter(n_splits: int, y: np.ndarray, groups: np.ndarray):
             return folds, "StratifiedGroupKFold"
     except Exception:
         pass
-    return (list(GroupKFold(n_splits=n_splits).split(np.zeros_like(y), y, groups)),
-            "GroupKFold")
+    try:
+        return (list(GroupKFold(n_splits=n_splits).split(np.zeros_like(y), y, groups)),
+                "GroupKFold")
+    except ValueError:
+        # Fewer groups than the minimum two that any K-fold needs. Both splitters
+        # raise here, so the previous code crashed the whole run with a bare
+        # ValueError out of sklearn. A single-panel dataset is a real situation
+        # (one session, one wall) and it must degrade rather than abort.
+        #
+        # The degradation is to run NOTHING, deliberately: the only fold that
+        # could be formed trains and tests on the same panel, and a score
+        # computed that way is leakage, not a cross-validated estimate. An empty
+        # fold list leaves every out-of-fold score NaN, the caller drops the
+        # unscored classifiers, and the report says the comparison was not run.
+        # That is the honest outcome for a sample with one group.
+        return [], "not run (one panel: no held-out group exists)"
 
 
 def classifier_study(df: "pd.DataFrame", rng: np.random.Generator,
@@ -2652,13 +2682,24 @@ def _md_integrity(L: List[str], rep: LoadReport, integ: IntegrityResult,
                        for _i, r in integ.grade_size_counts.iterrows()]))
 
     L.append("### 1b. Out-of-range screening bounds\n")
-    L.append(md_table(["Feature", "Unit", "Plausible min", "Plausible max", "Rows outside"],
+    L.append(md_table(["Feature", "Unit", "Plausible min", "Plausible max",
+                       "Rows outside", "Rows missing (NaN)"],
                       [[f, u if u != "-" else "dimensionless", fmt_num(lo), fmt_num(hi),
-                        f"{rep.out_of_range.get(f, 0):,}"]
+                        f"{rep.out_of_range.get(f, 0):,}",
+                        f"{rep.missing.get(f, 0):,}"]
                        for f, (u, lo, hi) in FEATURE_BOUNDS.items()]))
     L.append("These bounds are a corruption net, not a physics model: they catch unit "
              "mix-ups (Hz logged as kHz, seconds logged as milliseconds) and truncated "
              "log lines. A row outside a bound is dropped and counted above.\n")
+    L.append("**Missing is not the same as corrupt, and the two are counted "
+             "separately.** A NaN cell is kept, not dropped: in waveform mode "
+             "`impact_peak_g` is NaN by construction (it is not recoverable from "
+             "audio alone), and a decay fit may legitimately decline to return a "
+             "value. Dropping those rows would silently discard every waveform-mode "
+             "measurement. A NaN IS excluded from the statistics that need that one "
+             "feature, so each table's `n` is the count of rows carrying a usable "
+             "value for that feature -- read `n` against these columns before "
+             "comparing two rows of any table below.\n")
     if rep.notes:
         L.append("### 1c. Loader and exclusion notes\n")
         L.extend(f"- {note}" for note in rep.notes)
@@ -2941,7 +2982,7 @@ def _md_size(L: List[str], fit: Optional[SizeFit]) -> None:
                     if contains else
                     "; the CI does NOT contain the analytic value. The sign is wrong as "
                     "well as the magnitude, which is the signature of an *unidentified* "
-                    "fit rather than a wrong model: with only three collinear radii the "
+                    "fit rather than a wrong model: with only a handful of collinear radii the "
                     "free fit can trade `A` against `B` along a near-flat direction and "
                     "happily return a negative curvature. Section 5c-bis therefore fixes "
                     "`B` at its analytic value and re-estimates `A` as a single unknown "
@@ -2965,7 +3006,8 @@ def _md_size(L: List[str], fit: Optional[SizeFit]) -> None:
         L.append("### 5c-bis. Curvature A with B fixed by the physics\n")
         L.append("The free two-parameter fit above returns a **negative** A, which is "
                  "unphysical: the `1/a^4` curvature cannot invert a resonance. The reason "
-                 "is identification, not the model. The surviving radii (10, 15, 20 cm) "
+                 "is identification, not the model. The surviving radii "
+                 f"({', '.join(_size_label(s).replace(' cm', '') for s in fit.fit_sizes)} cm) "
                  "span a narrow `1/a^4` range and are strongly collinear with the "
                  "intercept, so on this sample the free fit can slide a large `B` and a "
                  "large `A` against one another almost without changing the fit; the "

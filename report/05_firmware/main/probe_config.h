@@ -175,11 +175,28 @@
 #define PROBE_I2S_DMA_DESC_NUM      4
 #define PROBE_I2S_DMA_FRAME_NUM     512
 
-/* Mic data format: 24 valid bits left-justified in a 32-bit slot, i.e. the
- * sample is `raw >> 8` and full scale is 2^23.  True for ICS-43434 and
- * INMP441 in their 24-bit I2S mode. */
+/* Mic data format: 24 valid bits, LEFT-JUSTIFIED in a 32-bit I2S slot.  The
+ * ICS-43434 and INMP441 both transmit MSB-first at the start of the slot, so in
+ * `I2S_DATA_BIT_WIDTH_32BIT` the value the driver hands back is
+ *
+ *     raw = sample_24bit << 8
+ *
+ * and the raw word's full scale is therefore 2^23 << 8 = 2^31, NOT 2^23.
+ * Dividing `raw` by 2^23 (which an earlier revision of this header implied by
+ * describing the value as "raw >> 8" while nothing in the capture path actually
+ * shifted) reports every amplitude 256x too large: a full-scale sample would
+ * publish peak_au = 256.0 against a documented full scale of 1.0, and the
+ * noise-floor test in dsp_decay_tau() would be comparing against a threshold
+ * 256x off.  The scale constant below is the raw word's full scale.
+ *
+ * BENCH CHECK (Appendix C.2): with the probe held against a lapped steel block,
+ * `peak_au` should land in the 0.05-1.0 range.  A reading near 256 means the
+ * shift convention is the other one on your module; a reading near 0.004 means
+ * it is this one and something else is wrong.  Verify this before quoting any
+ * amplitude, because every threshold above the raw spectrum is unaffected but
+ * every published amplitude is. */
 #define PROBE_MIC_DATA_BITS         24
-#define PROBE_MIC_FULL_SCALE        8388608.0f   /* 2^23 */
+#define PROBE_MIC_FULL_SCALE        2147483648.0f   /* 2^31 = 2^23 << 8 */
 
 /* =========================================================================
  * 5. DSP PARAMETERS
@@ -238,7 +255,45 @@
  * Grade semantics (see README, "Interpretation" -- and be honest about them):
  *   G0  no indication of debonding  (short, high-frequency click)
  *   G1  uncertain / re-test         (intermediate)
- *   G2  debonding indicated         (longer, lower-frequency ring)
+ *   G2  debonding indicated         (hollow ring: a mode has entered the band)
+ *
+ * ---------------------------------------------------------------------------
+ * WHICH WAY `band_ratio_lh` MOVES, AND WHY IT IS NOT THE OBVIOUS WAY
+ * ---------------------------------------------------------------------------
+ * band_ratio_lh = energy(300..1000 Hz) / energy(1000..15000 Hz).
+ *
+ *   BONDED wall : the layer is clamped to the substrate, so its resonance sits
+ *                 at f_found = (1/2pi)sqrt(k/rho h) = 23.9 kHz for 20 mm
+ *                 render -- ABOVE the 15 kHz band top.  Nothing modal is in
+ *                 band, so the spectrum is the strike transient times the
+ *                 broadband substrate response, both low-frequency weighted.
+ *                 => band_ratio_lh is HIGH (measured ~0.80).
+ *
+ *   DEBONDED    : the layer becomes a clamped plate on a vanishing foundation,
+ *                 and its fundamental lands INSIDE the band -- 14.8 kHz at
+ *                 8.8 cm diameter falling to 1.3 kHz at 30 cm.  That resonance
+ *                 puts a large amount of energy ABOVE the 1 kHz crossover, so
+ *                 the denominator grows and the ratio FALLS.
+ *                 => band_ratio_lh is LOW (measured 0.03 .. 0.19).
+ *
+ * So a debond drives `band_ratio_lh` DOWN, not up.  An earlier version of this
+ * header had the comparison inverted (G2 required ratio >= 0.70), which called
+ * every bonded point debonded and every debonded point bonded.  The report's
+ * prediction P4 records the same correction: "band_ratio_lh falls, bonded 0.800
+ * against debonded 0.19" (Ch. 8.7).  Do not re-invert it.
+ *
+ * ---------------------------------------------------------------------------
+ * KNOWN BLIND SPOT AT THE LARGE END -- state this in any survey report
+ * ---------------------------------------------------------------------------
+ * The rule is a *band* detector, not a monotone severity scale.  Because the
+ * test is "has the mode come down INTO the 1000..15000 Hz band", a debond large
+ * enough for its mode to fall BELOW the 1 kHz crossover looks bonded again:
+ * f1 = 994 Hz at 34 cm, 718 Hz at 40 cm, 460 Hz at 50 cm, and band_ratio_lh
+ * climbs back through 1.9 / 62 / 674.  The instrument therefore sees a *window*,
+ * roughly 8.8 cm to 32 cm of diameter on 20 mm render -- blind below it (mode
+ * above the band top) and blind above it (mode below the crossover).  The lower
+ * edge is the size floor of Ch. 5.5; the upper edge is this crossover, and it
+ * moves with the crossover, not with the finish.
  *
  * These defaults are PLACEHOLDERS that give a sane out-of-the-box behaviour on
  * the student's reference panels.  They are NOT a validated model and MUST be
@@ -247,10 +302,23 @@
  * G2 pair at run time and stores it in NVS.
  * ========================================================================= */
 
-#define PROBE_TH_RATIO_G2_DEFAULT   0.70f   /* >= -> "low frequencies dominate" */
-#define PROBE_TH_FPEAK_G2_DEFAULT   700.0f  /* <= -> "peak has moved down"      */
-#define PROBE_TH_RATIO_G0_DEFAULT   0.45f
-#define PROBE_TH_FPEAK_G0_DEFAULT   1400.0f
+/* G2 (debond indicated): the mode has entered the band.  The binding condition
+ * is the RATIO test -- a low ratio is the mode's presence.  The f_peak test is
+ * deliberately non-binding (set at the 300 Hz band floor, so it is satisfied by
+ * any in-band peak): a debond's mode is detectable as *added energy above the
+ * crossover* from about 8.8 cm, but does not become the spectrum's argmax until
+ * it is larger, so a tight f_peak bound here would veto exactly the small end
+ * the design is specified to catch.  f_peak is the SIZING channel, not the
+ * presence channel -- see Ch. 6.5. */
+#define PROBE_TH_RATIO_G2_DEFAULT   0.45f   /* <= -> mode in band (see above)   */
+#define PROBE_TH_FPEAK_G2_DEFAULT   300.0f  /* >= band floor; non-binding       */
+
+/* G0 (no indication): high ratio AND a low peak -- the whole spectrum is the
+ * strike transient and the substrate.  Both conditions bind: a probe artefact
+ * that puts a spurious peak above 700 Hz drops the reading to G1 (re-test)
+ * rather than passing it as bonded, which is the safe direction. */
+#define PROBE_TH_RATIO_G0_DEFAULT   0.70f   /* >= -> nothing modal in band      */
+#define PROBE_TH_FPEAK_G0_DEFAULT   700.0f  /* <= -> argmax is the transient    */
 
 /* Contact-quality acceptance window, applied to the AUXILIARY accelerometer.
  * It does not grade the wall; it grades the operator.  Outside this window the
@@ -281,8 +349,26 @@
  * ========================================================================= */
 
 #define PROBE_SOLENOID_SUPPLY_V     12.0f
-#define PROBE_SOLENOID_NOMINAL_W    22.0f
+#define PROBE_SOLENOID_NOMINAL_W    23.0f
 #define PROBE_SOLENOID_DUTY_MAX     0.10f   /* refuse anything above 10 %       */
+
+/* Compile-time guard: the pulse width and the minimum interval must be chosen
+ * CONSISTENTLY, because sol_strike() refuses any pulse whose worst-case duty
+ * (pulse / minimum interval) exceeds PROBE_SOLENOID_DUTY_MAX.  The Kconfig
+ * ranges allow pulse 5..120 ms against an interval as low as 500 ms, i.e. a
+ * duty of 0.24 -- a configuration in which EVERY strike is refused at run time
+ * with nothing but a log line to say why, which is a miserable thing to debug
+ * on a wall.  Better to fail the build.
+ *
+ * Written as integer arithmetic because the preprocessor cannot evaluate
+ * PROBE_SOLENOID_DUTY_MAX (a float): "duty <= 0.10" is "pulse * 10 <= interval".
+ * If PROBE_SOLENOID_DUTY_MAX is ever changed, update the 10 here with it.
+ *
+ * If you need a longer pulse, raise PROBE_MIN_STRIKE_INTERVAL_MS with it:
+ * 25 ms / 500 ms = 0.05 passes, 120 ms / 500 ms = 0.24 does not. */
+#if (PROBE_STRIKE_PULSE_MS) * 10 > (PROBE_MIN_STRIKE_INTERVAL_MS)
+#error "PROBE_STRIKE_PULSE_MS / PROBE_MIN_STRIKE_INTERVAL_MS exceeds PROBE_SOLENOID_DUTY_MAX: every strike would be refused at run time. Raise PROBE_MIN_STRIKE_INTERVAL_MS or lower the pulse width."
+#endif
 
 /* =========================================================================
  * 9. NETWORKING
@@ -350,6 +436,30 @@
  * bit-reversal table, and must be a power of two. */
 #if (1 << PROBE_FFT_LOG2_N) != PROBE_FFT_N
 #error "PROBE_FFT_N must equal 2^PROBE_FFT_LOG2_N"
+#endif
+
+/* Compile-time guard: the motorola tick rate must be fast enough that every
+ * millisecond delay the measurement path relies on survives pdMS_TO_TICKS().
+ *
+ * At the ESP-IDF default of 100 Hz, pdMS_TO_TICKS(2) and pdMS_TO_TICKS(5) both
+ * evaluate to 0.  A zero-tick vTaskDelay does not block at all, so
+ * do_measurement() would never yield to the lower-priority capture reader
+ * before firing the solenoid, and the strike could land outside the FFT window.
+ * sdkconfig.defaults sets CONFIG_FREERTOS_HZ=1000; this stops a build that has
+ * lost that setting from shipping the defect silently.
+ *
+ * CONFIG_FREERTOS_HZ is what the IDF exposes; fall back to the legacy
+ * configTICK_RATE_HZ name if this is built against an older v5 point release. */
+#if defined(CONFIG_FREERTOS_HZ)
+#  if CONFIG_FREERTOS_HZ < 1000
+#    error "CONFIG_FREERTOS_HZ must be >= 1000: at 100 Hz, pdMS_TO_TICKS(2)==0 and the strike lead, the capture-reader waits and the accelerometer poll all collapse to zero-delay spins. See sdkconfig.defaults."
+#  endif
+#elif defined(configTICK_RATE_HZ)
+#  if configTICK_RATE_HZ < 1000
+#    error "configTICK_RATE_HZ must be >= 1000: sub-10 ms delays round to zero ticks. See sdkconfig.defaults."
+#  endif
+#else
+#  warning "neither CONFIG_FREERTOS_HZ nor configTICK_RATE_HZ is defined at this point; the tick-rate guard did not run. Confirm the project's FreeRTOS tick rate is 1000 Hz (sdkconfig.defaults)."
 #endif
 
 #endif /* PROBE_CONFIG_H */

@@ -1,0 +1,46 @@
+# =============================================================================
+# sdkconfig.defaults -- Tap-test probe
+#
+# `idf.py build` applies these the first time it configures the project (delete
+# sdkconfig and rebuild to re-apply). They are recorded here rather than left to
+# the toolchain default because the firmware's timing and TLS behaviour depend
+# on them, and a dependency that is not in the repository is not a dependency
+# the report can claim.
+# =============================================================================
+
+# --- FreeRTOS tick rate ------------------------------------------------------
+# MUST be 1000 Hz.  The default is 100 Hz, at which pdMS_TO_TICKS() rounds every
+# sub-10 ms delay DOWN TO ZERO:
+#
+#   pdMS_TO_TICKS(2)  -> 0   the "2 ms strike lead" before sol_strike()
+#   pdMS_TO_TICKS(5)  -> 0   both bounded waits for the capture reader
+#   PROBE_ACCEL_PERIOD_MS 1 -> 0   the accelerometer poll loop
+#
+# A zero-tick delay is not a short delay, it is no delay at all, and in
+# do_measurement() that matters: the capture-reader task is created at LOWER
+# priority than the measurement task, so a zero-tick "delay" never yields to it
+# and the reader may not have entered its blocking i2s_channel_read() before the
+# solenoid fires.  The DMA is already running, so the strike can then land
+# outside the window the FFT is taken over.  At 1000 Hz the same call is a real
+# 2 ms block and the reader is guaranteed to be armed.
+#
+# It also makes the pulse width honest: vTaskDelay(pdMS_TO_TICKS(25)) is 2 ticks
+# = 20 ms at 100 Hz, not the 25 ms the Kconfig prompt promises.  (The hardware
+# failsafe is unaffected either way -- it uses esp_timer, in microseconds.)
+CONFIG_FREERTOS_HZ=1000
+
+# --- TLS trust anchor --------------------------------------------------------
+# Required by esp_crt_bundle_attach() in mqtt_start().  Without it the TLS
+# handshake to a public broker fails and the probe cannot publish.
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=y
+
+# --- Task watchdog -----------------------------------------------------------
+# Left at its default (enabled).  See the note in README A.8: the shipped code
+# has no unbounded loops, and the watchdog is the check on that claim.
+CONFIG_ESP_TASK_WDT_INIT=y
+
+# --- WiFi receive buffers ----------------------------------------------------
+# The probe publishes continuously during a survey; the default pool is tight
+# once MQTT keepalives share the radio.
+CONFIG_ESP_WIFI_STATIC_RX_BUFFER_NUM=10
+CONFIG_ESP_WIFI_DYNAMIC_RX_BUFFER_NUM=32

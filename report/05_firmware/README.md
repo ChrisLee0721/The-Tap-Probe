@@ -120,7 +120,7 @@ admit?  drain DMA  spawn reader ──► STRIKE (2 ms lead) ──► accel win
                                         │                        │
                                         └─── I2S capture 4096 samples @ 48 kHz (85.3 ms)
                                                                  │
-                                     DC removal → Hann window → 512-pt FFT (window at 4.0 ms)
+                                     DC removal → Hann window → 1024-pt FFT (window at 4.0 ms)
                                                                  │
                           f_peak, f_centroid, band_ratio_lh, decay_tau, peak, rms, crest, kurtosis
                                                                  │
@@ -420,7 +420,7 @@ anything sensitive** to it.
 | `f_centroid_hz` | float | Hz | Magnitude-weighted mean frequency over the same band |
 | `band_ratio_lh` | float | — | energy(< 1000 Hz) ⁄ energy(≥ 1000 Hz) |
 | `decay_tau_ms` | float | ms | Log-linear fit to the RMS envelope of the last 60 % of the capture. **`-1.0` means the fit was not usable** (see A.6.4) |
-| `peak_au` | float | full-scale | Peak \|sample\| in the analysis window; 1.0 = ADC full scale |
+| `peak_au` | float | full-scale | Peak \|sample\| in the analysis window; 1.0 = mic full scale. **Verify on the bench** (A.6.1 step 3, Appendix C.2): a full-scale reading of ~256 means your module's 24-bit data is left-justified in the 32-bit slot and `PROBE_MIC_FULL_SCALE` needs the `<< 8` (see `probe_config.h`) |
 | `rms_au` | float | full-scale | RMS of the same window |
 | `crest_factor` | float | — | `peak_au / rms_au` |
 | `kurtosis` | float | — | Fourth standardised moment of the window (3.0 = Gaussian) |
@@ -451,9 +451,10 @@ report. Read A.6.4 and A.9 before writing either of them up.
    * If SIMULATION MODE is on, you will see the large warning banner. **Stop and
      disable it before collecting any data you intend to report.**
 3. Zero the reference: press the probe tip against the *good* reference panel and take
-   one measurement. `f_peak_hz` should be in the high hundreds to low kilohertz with
-   `band_ratio_lh` below about 0.5. If it is not, suspect the contact quality first
-   (next section), the contact geometry second, and the thresholds last.
+   one measurement. `f_peak_hz` should be at or just above the 300 Hz band floor — the
+   argmax is the strike transient, because a bonded area has no in-band mode — and
+   `band_ratio_lh` should be **high**, around 0.8. If it is not, suspect the contact
+   quality first (next section), the contact geometry second, and the thresholds last.
 4. Check the strike counter with `status`. Record it at the start of the session —
    `strikes_total` is the honest record of how many strikes the solenoid has taken.
 
@@ -483,28 +484,48 @@ report. Read A.6.4 and A.9 before writing either of them up.
 
 ### A.6.3 Understanding the grade
 
+A debonded patch stops being *clamped* to the substrate and becomes a plate on a
+vanishing foundation, so its fundamental resonance comes **down** into the analysis band:
+14.8 kHz at 8.8 cm diameter, 5.1 kHz at 15 cm, 2.9 kHz at 20 cm on 20 mm render. A bonded
+area's resonance is at 23.9 kHz — above the 15 kHz band top — so nothing modal is in band
+at all.
+
+That is why `band_ratio_lh` moves **down** on a debond, not up. The feature is
+`energy(300–1000 Hz) / energy(1000–15000 Hz)`, and the debond's mode lands **above** the
+1 kHz crossover and inflates the denominator.
+
 ```
                     band_ratio_lh  (energy <1 kHz / energy >1 kHz)
                               low ◄──────────────────────► high
                   f_peak high  ┌───────────────┬───────────────┐
-                               │      G0       │               │
-                               │ no indication │      G1       │
+                               │      G2       │               │
+                               │   debonding   │      G1       │
                                ├───────────────┤   uncertain   │
                   f_peak low   │               │               │
                                │               ├───────────────┤
-                               │               │      G2       │
-                               │               │   debonding   │
+                               │               │      G0       │
+                               │               │ no indication │
                                └───────────────┴───────────────┘
-             Default boundaries:  G2  if band_ratio_lh ≥ 0.70 AND f_peak_hz ≤ 700
-                                  G0  if band_ratio_lh ≤ 0.45 AND f_peak_hz ≥ 1400
+             Default boundaries:  G2  if band_ratio_lh ≤ 0.45 AND f_peak_hz ≥ 300
+                                  G0  if band_ratio_lh ≥ 0.70 AND f_peak_hz ≤ 700
                                   G1  otherwise
+
+             The two boxes are disjoint (0.45 < 0.70); the band between them is G1.
+             The G2 f_peak bound sits at the band floor and is deliberately
+             non-binding — f_peak is the SIZING channel, not the presence channel.
 ```
 
-The physical story: a debonded patch is a *plate with a free edge*, so it rings longer
-and its energy sits lower in the spectrum. A bonded area is heavily damped, so it clicks
-short and bright. That is the whole basis of the rule — and it is why `decay_tau_ms`,
-which measures exactly that damping, is worth collecting even though the default rule
-does not use it.
+The physical story: a debonded patch is a *plate with a free edge*, so it rings at a
+resonance of its own — and that resonance is inside the analysis band, which is the whole
+reason the instrument works. A bonded area is clamped, so it clicks short and bright with
+no in-band mode at all.
+
+**A blind spot at the large end, and it matters in a survey.** The rule detects *a mode that
+has come down into 1–15 kHz*. A debond big enough for its mode to fall **below** the 1 kHz
+crossover reads as bonded again — 994 Hz at 34 cm, 718 Hz at 40 cm, where `band_ratio_lh`
+climbs back through 1.9 and 62. So this is a **size window**, roughly 8.8 cm to 32 cm on
+20 mm render, not a severity scale: too small and the mode is above the band, too large and
+it is below the crossover. A clean reading is not a certificate of soundness at either end.
 
 `confidence` is the normalised distance from the decision boundary. A reading with
 `confidence = 0.95` is comfortably inside a box; `confidence = 0.5` is exactly on the
@@ -576,11 +597,13 @@ result, calibrate.
 3. For each, type `dump` on the console. It prints the last result as JSON. Record
    `band_ratio_lh` and `f_peak_hz`, and check `contact_ok` is true.
 4. Compute, for each panel, the range of `band_ratio_lh` and of `f_peak_hz`.
-5. Look for a **separation**:
+5. Look for a **separation**. The good panel sits at a **high** ratio and the debonded
+   panel at a **low** one, because the debond's plate mode lands above the 1 kHz
+   crossover (A.6.3):
 
    ```
-   band_ratio_lh        good panel:  0.21 .. 0.44
-                        debonded  :  0.55 .. 0.83
+   band_ratio_lh        good panel:  0.72 .. 0.86
+                        debonded  :  0.03 .. 0.19
                                      ▲ separation
    ```
 
@@ -588,17 +611,19 @@ result, calibrate.
    populations. Say so in the report, with the numbers, and either improve the
    measurement (better coupling, more repeats, a different feature) or narrow the claim.
 
-6. Set the threshold just inside the gap — here, `band_ratio_lh = 0.50`, below the
-   debonded floor of 0.55. The device refuses ratios outside 0..20 and peaks outside
-   100..20000 Hz:
+6. Set the threshold inside the gap — here, `band_ratio_lh = 0.45`, above the debonded
+   ceiling of 0.19 and below the good panel's floor of 0.72. The device refuses ratios
+   outside 0..20 and peaks outside 100..20000 Hz:
 
    ```
-   set th 0.50 900
+   set th 0.45 300
    ```
 
-   This sets the **G2** boundary to `band_ratio_lh ≥ 0.50 AND f_peak_hz ≤ 900 Hz`
-   and stores it in NVS, so it survives a reboot. The G0 boundary in the header is left
-   alone; if your good panel needs it moved, edit
+   This sets the **G2** boundary to `band_ratio_lh ≤ 0.45 AND f_peak_hz ≥ 300 Hz`
+   and stores it in NVS, so it survives a reboot. The `f_peak_hz` condition is a floor
+   check at the band edge and is satisfied by any in-band peak; it is the *ratio* that
+   carries the detection, which is why it is the one to move. The G0 boundary in the
+   header is left alone; if your good panel needs it moved, edit
    `PROBE_TH_RATIO_G0_DEFAULT` / `PROBE_TH_FPEAK_G0_DEFAULT` and reflash.
 
 7. **Re-run both panels** through the classifier. Count:
@@ -630,14 +655,15 @@ unvalidated. Never mix a measurement from one wall with a threshold fitted on an
 | Same, but the mic initialises and the audio is all zeros | Mic module is **not** in 24-bit I²S mode (some INMP441 boards are set to 16-bit), or the channel mask does not match the L/R strap | `dump` and look at `peak_au` — exactly 0.000 means digital silence | Change the mic's L/R strap, or set `PROBE_MIC_DATA_BITS` and the I²S slot width to match the module and adjust `PROBE_MIC_FULL_SCALE` accordingly |
 | **WiFi fails.** `connecting to '...'` then `giving up after 8 retries` | Wrong SSID/password; AP is 5 GHz only; the AP requires a captive portal | `status` → `ssid` field; serial monitor for `retry n/8` | Reprint the SSID exactly (it is case sensitive); connect to a 2.4 GHz SSID — the ESP32 has no 5 GHz radio; re-run `provision` |
 | WiFi associates but no IP | DHCP pool exhausted or MAC filtering | Monitor shows no `got IP` line | Clear the DHCP lease table; check MAC filtering |
-| **MQTT TLS handshake fails.** Log: `error type ... tls stack err ... cert flags 0x...` | Wrong port (using 1883 for TLS, or 8883 without TLS); a self-signed broker certificate; clock not set, so certificate dates do not validate; certificate bundle disabled | `status` → `time synced`; the URI must start `mqtts://` for TLS; in `menuconfig`, `MBEDTLS_CERTIFICATE_BUNDLE` must be on | Use the correct port in the URI; set the SNTP server first so the clock is valid before the handshake; for a lab broker with a private CA, either add that CA to the bundle or use `mqtt://` **inside the lab network only** and say so in the report |
+| **MQTT TLS handshake fails.** Log: `error type ... tls stack err ... cert flags 0x...` | Wrong port (using 1883 for TLS, or 8883 without TLS); a self-signed broker certificate; clock not set, so certificate dates do not validate; certificate bundle disabled | `status` → `time synced`; the URI must start `mqtts://` for TLS; in `menuconfig`, `MBEDTLS_CERTIFICATE_BUNDLE` must be on | Use the correct port in the URI; set the SNTP server first so the clock is valid before the handshake; for a lab broker with a private CA, add that CA to the bundle. **A plain `mqtt://` URI is refused by the firmware** (`mqtt_start()`), so there is no plaintext fallback to reach for |
+| `refusing broker URI ...: it is not mqtts://` at boot | The provisioned MQTT URI is plaintext | `status` → `mqtt uri` | Re-run `provision` with an `mqtts://` URI and a CA the bundle trusts. This is deliberate: a plaintext link would send the broker credentials and the survey data in the clear, with no error anywhere |
 | `measurement ... not published: MQTT down` but measurements are logged locally | Broker unreachable or the client was kicked (duplicate client id) | Another device using the same `client_id`? | Give every probe a unique `dev_id` **and** a unique MQTT client id in `provision` |
 | **Solenoid double-fires** (two taps per press) | Trigger switch bounce; or the button is polled faster than the debounce filter; or a second measurement was queued | Count `strikes_total` before and after one press | The firmware debounces the button (200 ms) and refuses strikes inside the minimum interval; if it still double-fires, add a hardware RC debounce (10 kΩ + 100 nF) across the switch. **Never** "fix" this by shortening the minimum interval |
 | Solenoid weak / no tap | 12 V supply sagging under the 1.92 A pulse; MOSFET not fully enhanced | Measure the 12 V rail **during** a strike | Fit the 1000 µF bulk capacitor at the solenoid; use a logic-level FET (IRLZ44N, not IRF540); check the gate resistor is 220 Ω and not much larger |
 | **Watchdog resets.** `task_wdt: Task ... did not reset the watchdog` | A blocking wait without a timeout, or a task sat in a tight loop | Note which task is named in the log | The shipped code has no unbounded loops and every wait has a timeout. If you add code, keep that discipline — and prefer `vTaskDelay` over busy-waiting. Raise `CONFIG_ESP_TASK_WDT_TIMEOUT_S` only as a last resort |
 | Random resets with no WDT message | Brown-out during the strike (12 V rail and 3.3 V rail sharing a weak supply) | `Brownout detector was triggered` in the log | Separate the supplies, or add bulk capacitance. **Never** power a 23 W solenoid from the same USB port as the ESP32 |
 | **Overheating** — solenoid coil hot to the touch after a few strikes | Duty budget bypassed, or the pulse is stuck on | Console `status` shows refusals; check the slave log for `THERMAL BUDGET EXCEEDED` | The firmware refuses strikes and forces a cooldown. If the coil is still hot, the MOSFET may be stuck on — power down immediately and check the gate pulldown and the flyback diode |
-| `decay_tau_ms` is always `-1.0` | The ring-down is outside the resolvable 4–25 ms window for this capture length | Compare `f_peak_hz` across the panels — is the acoustic difference there at all? | Lengthen `PROBE_CAPTURE_SAMPLES`, or move the envelope window earlier, and re-validate. Do not simply widen the accept range: that hides the problem |
+| `decay_tau_ms` is always `-1.0` | The ring-down lies outside the window this capture length can resolve (the tail window spans 34.1–85.3 ms; see A.6.4) | Compare `f_peak_hz` across the panels — is the acoustic difference there at all? | Lengthen `PROBE_CAPTURE_SAMPLES`, or move the envelope window earlier, and re-validate. Do not simply widen the accept range: that hides the problem |
 | `contact_ok: false` on almost every measurement | Genuinely poor technique, or the accelerometer is clamped/loose in the body | `impact_peak_g` value in the payload | Re-seat the accelerometer rigidly; then re-train the technique. If the values are absurd (hundreds of g), the sensor is saturating — raise `PROBE_ACCEL_RANGE_G` |
 | Grades look random, `confidence` always near 0.5 | Thresholds still at their placeholder defaults, or the two panels overlap | Run the A.7 calibration | Fit the thresholds; if the panels overlap, say so honestly rather than tuning until the numbers look good |
 | Every payload carries `"sp":true` and the dashboard greys the rows out | SIMULATION mode is enabled | The boot log banner; `status` → `simulation : ON` | That is the intended behaviour, and it is there so simulated rows *cannot* be mistaken for measurements. Disable the flag in `menuconfig` and reflash before collecting data |

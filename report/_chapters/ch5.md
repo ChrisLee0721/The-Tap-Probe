@@ -412,6 +412,12 @@ description into engineering, and Chapter 8 tests each.
 | P2 | $f_{\text{peak}}$ falls monotonically with debond diameter for a fully debonded region | $1/a^2$ law | §8.5 |
 | P3 | $f_{\text{peak}}$ is a *poor* single-channel detector, because intact and small-debond cases are both out of band | Table 5.3 rows 1–3 | §8.4 |
 | P4 | Low-frequency energy fraction (`band_ratio_lh`) rises with debond severity once the mode enters the band | Mode energy moves below the 1 kHz crossover | §8.2 |
+
+The P4 row is recorded here as it was **pre-registered**, including its stated mechanism, so that §8.7
+can report the failure against the prediction that was actually made rather than one that has been
+quietly repaired. The mechanism is wrong: §5.5's own tables put every detectable mode at 1.3–14.8 kHz,
+i.e. **above** the crossover, so a debond moves energy past the crossover from the low side and the
+ratio **falls**. §8.7 P4 records this and §6.5's feature table has been corrected.
 | P5 | `decay_tau_ms` is **not** usable for render or stone in the detectable range | $\tau = Q/(\pi f_1) < 3$ ms for $f_1 > 5$ kHz (Table 5.7) | §8.4 |
 | P6 | The smallest detectable debond is 7 cm (tile), 8.8 cm (render), 11.3 cm (stone) | Table 5.4 | §8.7 |
 | P7 | Repeated taps at one location vary by less than 5 % in $f_{\text{peak}}$ | Rigid mounting fixes geometry | §8.3 |

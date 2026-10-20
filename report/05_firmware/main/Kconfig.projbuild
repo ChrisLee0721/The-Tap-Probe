@@ -79,7 +79,7 @@ menu "Tap-test probe configuration"
             default n
             help
                 The analysis band (300..15000 Hz), the crossover (1000 Hz) and
-                the FFT length (512) are compile-time constants in
+                the FFT length (1024) are compile-time constants in
                 probe_config.h rather than Kconfig symbols, because the
                 classification thresholds are expressed against them and moving
                 one without re-deriving the others is the most common way to make

@@ -996,6 +996,12 @@ description into engineering, and Chapter 8 tests each.
 | P2 | $f_{\text{peak}}$ falls monotonically with debond diameter for a fully debonded region | $1/a^2$ law | §8.5 |
 | P3 | $f_{\text{peak}}$ is a *poor* single-channel detector, because intact and small-debond cases are both out of band | Table 5.3 rows 1–3 | §8.4 |
 | P4 | Low-frequency energy fraction (`band_ratio_lh`) rises with debond severity once the mode enters the band | Mode energy moves below the 1 kHz crossover | §8.2 |
+
+The P4 row is recorded here as it was **pre-registered**, including its stated mechanism, so that §8.7
+can report the failure against the prediction that was actually made rather than one that has been
+quietly repaired. The mechanism is wrong: §5.5's own tables put every detectable mode at 1.3–14.8 kHz,
+i.e. **above** the crossover, so a debond moves energy past the crossover from the low side and the
+ratio **falls**. §8.7 P4 records this and §6.5's feature table has been corrected.
 | P5 | `decay_tau_ms` is **not** usable for render or stone in the detectable range | $\tau = Q/(\pi f_1) < 3$ ms for $f_1 > 5$ kHz (Table 5.7) | §8.4 |
 | P6 | The smallest detectable debond is 7 cm (tile), 8.8 cm (render), 11.3 cm (stone) | Table 5.4 | §8.7 |
 | P7 | Repeated taps at one location vary by less than 5 % in $f_{\text{peak}}$ | Rigid mounting fixes geometry | §8.3 |
@@ -1344,7 +1350,7 @@ Chapter 8 tests each feature; this section states what each is *for*, which is w
 |---|---|---|---|
 | `f_peak_hz` | Frequency of maximum magnitude in 300 Hz–15 kHz | Locates the wall mode; the primary size indicator | Falls as $1/a^2$ for debonds above the size floor; uninformative below it (P3) |
 | `f_centroid_hz` | Magnitude-weighted spectral centroid over the band | Robust proxy for the spectral balance; less sensitive to a single noisy bin than `f_peak` | Tracks `f_peak` but with lower variance |
-| `band_ratio_lh` | Energy below 1 kHz / energy above 1 kHz | Detects the *presence* of a wall mode without needing to locate it; the most robust severity indicator | Rises with severity once the mode enters the band (P4) |
+| `band_ratio_lh` | Energy below 1 kHz / energy above 1 kHz | Detects the *presence* of a wall mode without needing to locate it; the **primary detection channel**, because a mode entering the band moves energy past the crossover whether or not it becomes the argmax | **Falls** as the mode enters the band from above (§8.7 P4 corrects the sign this table originally predicted) |
 | `decay_tau_ms` | Log-linear fit to the envelope | Damping/ring-time | Useful **only** for tile at large diameters; a dead channel for render and stone (P5) |
 
 **A correction to an earlier version of this section, because it changed the answer.** This section
@@ -2095,16 +2101,23 @@ Table 5.3.
 
 $$H(f) = \underbrace{\frac{0.35}{1+(f/500)^{0.7}}}_{\text{broadband substrate}} + \underbrace{\frac{rad}{(1-(f/f_1)^2) + j\,f/(f_1 Q)}}_{\text{the debond mode}}$$
 
-with the mode term **omitted entirely when $f_1 > 20$ kHz**, which is what makes the bonded control's
-in-band spectrum pure transient. $rad$ scales with how far the mode has entered the band,
-$rad = 3.0\,\mathrm{clip}(d/10, 0.3, 1.0)$.
+with the mode term **omitted entirely when $f_1 > 15$ kHz** (`SYNTH_MODE_IN_BAND_MAX_HZ`, the band top),
+which is what makes the bonded control's in-band spectrum pure transient. $rad$ scales with how far the
+mode has entered the band, $rad = 3.0\,\mathrm{clip}(d/10, 0.3, 1.0)$.
+
+**That cutoff is the single most consequential line in the generator, and it is arithmetic, not
+physics.** It is what makes the model's own size floor appear in the results: at 8.8 cm the mode sits at
+14 844 Hz for a full debond (kept) and 15 055 Hz for a partial one (dropped), so a class placed exactly
+on the predicted floor comes out half-detected — see §8.4c and the P6 verdict in §8.7. Dwelling 156 Hz
+either side of the cutoff moves that row between 0 % and 100 %. The cutoff is a restatement of the
+band edge, which is why it is a test of the model's *arithmetic* and not of the instrument.
 
 **Step 4 — observation.** Magnitude spectrum $S(f) = \sqrt{F^2(f)}\,|H(f)|$ on the 1024-point/48 kHz
 grid, with per-tap lognormal noise ($\sigma = 0.05$) and per-panel random effects on the mode strength
 ($\sigma = 0.07$) and the broadband level ($\sigma = 0.05$). Features are then extracted by the *same*
 code the script uses on real data.
 
-**Step 5 — the experiment.** 12 panels × 13 locations × 5 taps = **780 measurements**. Locations are
+**Step 5 — the experiment.** 12 panels × 17 locations × 5 taps = **1 020 measurements**. Locations are
 three bonded controls ($d = 0$) and one each of $d \in \{3, 5, 7, 8.8, 10, 15, 20\}$ cm at both partial
 and full debond. Panel identity is the grouping variable for cross-validation, so no panel leaks between
 training and test folds.
@@ -2338,7 +2351,7 @@ a trustworthy observable and amplitude is not, and it is why `peak_au` was exclu
 **Feature-level tests.** Kruskal–Wallis across the three grades (a non-parametric test, chosen because
 the features are not expected to be normal), then pairwise Mann–Whitney U with a Holm–Bonferroni
 correction across the family of comparisons, with Cliff's delta as the effect size. A p-value alone is
-uninformative at n = 780; the effect size is what says whether a difference is worth using.
+uninformative at n = 1 020; the effect size is what says whether a difference is worth using.
 
 **Classifiers.** Three, compared on identical folds:
 
@@ -2449,7 +2462,7 @@ Bonded control: **180** taps, of which **0** were called debonded (0.0% false-al
 
 **480 of the 840 debonded taps (57.1%) are smaller than 10 cm**, i.e. below the size floor the report derives in S5.5. A class in that range has no in-band mode to detect, so it is not misclassified by the model — it is *outside the model's input space*, and every pooled metric that includes it understates the method and overstates the difficulty. Read the pooled row and this table together.
 
-#### 8.6a  Confusion matrices (out-of-fold counts)
+#### 8.4d  Confusion matrices (out-of-fold counts)
 
 **Threshold rule**
 
@@ -2489,8 +2502,8 @@ stiffness term $\propto k/\rho h$. Fitting them separately is not a refinement �
 physically distinct quantities that the one-parameter form conflates.
 
 **The analytic check.** For the reference panel,
-$A_{analytic} = D\alpha^4/((2\pi)^2\rho h) = 28.737$ Hz²·m⁴. The fitted $A$ is compared against it
-below. A fitted value far from 28.737 would indicate either a mis-specified fit or a generator that does
+$A_{analytic} = D\alpha^4/((2\pi)^2\rho h) = 825.8$ Hz²·m⁴. The fitted $A$ is compared against it
+below. A fitted value far from 825.8 would indicate either a mis-specified fit or a generator that does
 not implement the model it claims to.
 
 **A censoring problem that must be handled explicitly.** For bonded controls and for debonds below the
@@ -2498,6 +2511,16 @@ size floor, $f_{\text{peak}}$ is pinned at the 300 Hz band edge — it is not a 
 is the observation that no mode was found. Those points are **censored observations** and are excluded
 from the fit, and the report states how many were used and how many dropped. Fitting a size law through
 band-edge-pinned points would be fitting the band edge, not the physics.
+
+**Censoring here is the crossover, not a measurement of the wall, and that has a consequence for 8.5a
+above.** A tap is dropped when `f_peak_hz` sits at or below the 1 kHz crossover, on the argument that the
+argmax there is the strike transient rather than a resonance. That is right for the classes whose mode is
+genuinely out of band. It is *also* what removes most of the 8.8 cm and 10 cm classes — leaving 13 and 26
+taps of 120 — and those two classes are exactly where the modelled mode lands. The taps that survive are
+the ones whose transient happened to scatter upward past 1 kHz, which is the tail of the noise
+distribution rather than a representative sample of the class. **8.5a's medians are computed over all
+taps and the fit in 8.5b over the survivors, so the two tables describe different subsets of the same
+class.** Read the residual column in 8.5a as a statement about the medians, not about the fit.
 
 SYNTHETIC
 
@@ -2641,9 +2664,31 @@ Reference classifier for the curve: **Logistic regression** (the best-AUC detect
 | Cost saved per tap by moving to the optimum | **0.64286** |
 | Saving as a fraction of the default cost | **43.1%** |
 | Cost of never raising an alarm (threshold = 1) | 3.00000 |
-| Cost of always raising an alarm (threshold = 0) | 0.85000 |
+| Cost of always raising an alarm (threshold = 0) | **0.85000** |
 
-The last two rows are the degenerate strategies the threshold is choosing between. Never alarming leaves every missed debond unpriced against its consequence; always alarming pays a re-inspection on every bonded point. Figure 5 (`fig05_expected_cost.png`) shows the optimum sitting between them, and the annotated saving is the cost of ignoring the asymmetry.
+**The optimum and the "always alarm" row are the same number, and that is the result — not a
+coincidence to be smoothed over.** At the cost-optimal threshold the false-positive rate is 1.0000: the
+rule alarms on every tap, including all 180 bonded controls. It ties, to five decimals, with the
+degenerate always-alarm strategy, and it beats the naive 0.5 default by 0.64286 per tap purely by
+abandoning specificity. **On this dataset, at a 20:1 miss-to-false-alarm ratio, no threshold on this
+classifier beats alarming unconditionally**, because the classifier cannot reach a point with a lower
+miss rate than always-alarming without paying more in false alarms than the 20:1 ratio forgives.
+
+That is a real finding about the reference classifier and the pooled sample, and it is the honest
+reading of the table above. It does **not** mean the instrument should alarm constantly. Two things
+bound it. First, the pooled sample is 82 % debonded by construction (§8.0), whereas a real survey is
+perhaps 15 % debonded, so the asymmetry the optimum is exploiting is far less favourable in the field.
+Second, the classifier that this table prices is not the one the firmware runs: §8.4c scores a
+four-feature logistic model, while the node applies a two-condition box on `band_ratio_lh` and
+`f_peak_hz`. Evaluating the box's shipped constants against this same dataset gives a false-alarm rate
+of **0 in 180** on the bonded control and 0 / 0 / 0 / 60 / 120 / 120 / 120 detections across the 3, 5, 7,
+8.8, 10, 15 and 20 cm classes — a rule that is specific and insensitive rather than one that alarms on
+everything. What this section establishes is therefore narrower than "there is an optimal operating
+point": it establishes that the expected-cost framework **is sensitive enough to report when a
+classifier has no usable operating point**, and on the pooled sample it says exactly that about the
+logistic model. Read Figure 5 (`fig05_expected_cost.png`) for that — the curve is flat-topped between the
+optimum and the default, which is the signature of a classifier whose threshold does not usefully trade
+the two errors.
 
 ## 8.7 Prediction verdicts
 
@@ -2671,9 +2716,9 @@ did, and each failure is more informative than a pass would have been.
 | **P3** | **Holds** | `f_peak_hz` used alone gives AUC **0.732**, the weakest of the three spectral features (Table 8.4), because it is non-monotone in severity; `band_ratio_lh` at **0.753** and the multivariate logistic model at **0.755** both key on the *presence* of a mode rather than its location |
 | **P4** | **Fails, and the failure is the more useful statement** | §5.10 predicted `band_ratio_lh` would **rise** with severity. It **falls**: bonded 0.800 against debonded 0.19. The prediction had the sign of the physics inverted — a mode entering the band moves energy *above* the 1 kHz crossover, so the ratio drops. §6.5 and the headline figure of §7.8.3 were corrected accordingly |
 | **P5** | **Holds emphatically** | `decay_tau_ms` is the −1.0 sentinel for **100 %** of bonded points and **95 %** of fully debonded ones, giving AUC **0.507** with a 95 % CI of **[0.504, 0.511]** — indistinguishable from chance. This is the single clearest confirmation in the chapter, and it confirmed the report's own declaration that the feature is a dead channel for render |
-| **P6** | **Not tested as stated, and the run shows why** | The prediction is about a *diameter*; the first dataset placed no class near the 8.8 cm floor, so it could not be tested at all. Adding 7 cm and 8.8 cm classes puts one on each side: detection is negligible at 7 cm and well short of reliable at 8.8 cm, rising to complete at 10 cm and above. **The floor is real, but the placing of the classes has to be designed to see it** — which is a statement about the experiment, not about the instrument |
+| **P6** | **Not tested as stated, and the run shows why** | The prediction is about a *diameter*; the first dataset placed no class near the 8.8 cm floor, so it could not be tested at all. Adding 7 cm and 8.8 cm classes puts one on each side: detection is negligible at 7 cm and half at 8.8 cm, rising to complete at 10 cm and above. **But the 8.8 cm half is not a measured detection rate.** The class sits on the generator's own `f1 > 15 kHz` mode-drop cutoff: the full-debond taps come out at 14 844 Hz (mode kept) and the partial-debond taps at 15 055 Hz (mode dropped), so "50 %" is the two grades straddling a threshold by 156 Hz, not two populations separated by physics. Moving that cutoff 2 % either way gives 0 % or 100 %. The floor's *location* is consistent with §5.5; its *sharpness* is an artefact of the generator, and the boundary between 7 cm and 10 cm is unmeasured |
 | **P7** | **Fails** | Median within-location CV of `f_peak_hz` is **6.62 %** and **72.1 %** of locations exceed the 5 % criterion. §8.3 says the probe should therefore average several taps per location and increase the repeat count rather than claim single-tap representativeness |
-| **P8** | **Identified but not confirmed** | The two-parameter form beats the one-parameter form on matched taps (R² 0.191 against −1.402), but only because the one-parameter fit is badly wrong on the censored range. With B fixed by the physics the curvature comes out positive yet roughly an order of magnitude below the analytic value (§8.5d), so the sample bounds the coefficient rather than measuring it |
+| **P8** | **Identified but not confirmed** | The two-parameter form beats the one-parameter form on matched taps (R² 0.191 against −1.960), but only because the one-parameter fit is badly wrong on the censored range. With B fixed by the physics the curvature comes out positive yet roughly an order of magnitude below the analytic value (§8.5d), so the sample bounds the coefficient rather than measuring it |
 
 **Two of the eight verdicts were wrong in the report's own model, and both were found by running it.** P4
 had the sign of the band-ratio response backwards, and P6 could not be tested by the dataset the report
@@ -2737,6 +2782,16 @@ render (§5.5.1). Both halves of that statement matter, and they fit the applica
   replace a strength test. A survey that reports "no defects" from this instrument has *not* established
   the absence of small or partially bonded defects. The operating procedure (Appendix C.5) says this in
   the operator's own words, and the dashboard carries the same warning.
+- **And it is blind at the large end too, which §5.5 does not cover.** The detection test is "has a mode
+  come down *into* 1–15 kHz", so the instrument has a **two-sided** window, not a floor. A debond large
+  enough for its mode to fall *below* the 1 kHz crossover reads as bonded again: on the reference panel
+  the mode crosses 1 kHz at about 34 cm diameter, where `band_ratio_lh` climbs back through 1.9 (34 cm),
+  62 (40 cm) and 674 (50 cm) against a bonded value of 0.80. The upper edge is set by the crossover, not
+  by the finish, and it is a **crossover** in the ordinary sense — the feature is non-monotone in size,
+  so a 40 cm hollow and a 5 cm hollow produce the same reading. This matters for the deployment: the
+  large, well-developed separation that is closest to falling is the one case the rule is most likely to
+  pass as sound. Appendix C.5's operator briefing and the firmware's classification comment now both
+  state it. **A clean survey is not a certificate of soundness in either direction.**
 - **What it can do:** locate *large, substantially separated* regions quickly and reproducibly, and —
   the actual value — **record them**. The comparison the instrument enables is not against a strength
   criterion but against *its own earlier survey of the same wall*. A 12 cm hollow that has been there
@@ -3322,10 +3377,18 @@ This procedure is what makes the measurement valid. **A single tap in isolation 
 **What the operator must be told**, in the operating document and in training:
 
 - The instrument cannot see debonds smaller than roughly 10 cm in tile or render, or 15 cm in stone.
-  **A clean survey is not a certificate of soundness.** *The floor is not a single number*: it scales as
-  $\sqrt{h}$ with the finish thickness (§5.5.2, Table 5.8), so the same instrument has a 10.7 cm floor on
-  a 30 mm render and a 4.4 cm floor on a 5 mm one. Record the finish construction if it is known, and
-  never quote the floor for a building whose build-up has not been established.
+  **A clean survey is not a certificate of soundness at either end of the size range.** *The floor is not
+  a single number*: it scales as $\sqrt{h}$ with the finish thickness (§5.5.2, Table 5.8), so the same
+  instrument has a 10.7 cm floor on a 30 mm render and a 4.4 cm floor on a 5 mm one. Record the finish
+  construction if it is known, and never quote the floor for a building whose build-up has not been
+  established.
+- **The instrument is also blind to very large debonds, and this is the counter-intuitive half.** The
+  detection test asks whether a mode has come down *into* the 1–15 kHz band. A debond big enough for its
+  mode to fall below the 1 kHz crossover reads as bonded again — on 20 mm render that is roughly 34 cm
+  and up (§9.2). So the rule responds to a *size window*, not to severity, and **the largest and most
+  dangerous separations are the ones most likely to read clean**. An operator who understands only the
+  small-debond limit will read a clean large panel as sound, which is exactly the wrong inference. If a
+  survey region is visually suspect, tap it and treat the reading as advisory at any size.
 - The reading is relative to the session's reference. Moving to another building requires a new
   reference.
 - A suspect reading requires a manual re-inspection. The instrument narrows the search; it does not
@@ -3372,25 +3435,31 @@ establish.
 
 | File | Lines | Purpose |
 |---|---|---|
-| `05_firmware/README.md` | ~790 | Build, flash, provision, operate, troubleshoot; includes a "what this instrument is not" section that is part of the report's honesty posture |
-| `05_firmware/main/app_main.c` | ~2100 | Application: I²S capture, self-contained radix-2 FFT + Hann window with coherent-gain correction, MPU6050 reads, solenoid drive with three independent guards, MQTT over TLS, console |
-| `05_firmware/main/probe_config.h` | ~355 | Single source of truth: pins, sample rate, band (300–15000 Hz), crossover (1000 Hz), τ window (3–60 ms), thermal limits, topic strings |
+| `05_firmware/README.md` | ~820 | Build, flash, provision, operate, troubleshoot; includes a "what this instrument is not" section that is part of the report's honesty posture |
+| `05_firmware/main/app_main.c` | ~2 220 | Application: I²S capture, self-contained radix-2 FFT + Hann window with coherent-gain correction, MPU6050 reads, solenoid drive with three independent guards, MQTT over TLS, console |
+| `05_firmware/main/probe_config.h` | ~465 | Single source of truth: pins, sample rate, band (300–15000 Hz), crossover (1000 Hz), τ window (3–60 ms), thermal limits, topic strings |
 | `05_firmware/main/Kconfig.projbuild` | ~140 | Tunables with fallbacks |
+| `05_firmware/sdkconfig.defaults` | ~40 | Build-time settings the firmware depends on (FreeRTOS tick rate 1000 Hz, CA bundle). Not optional: the tick rate is what makes every sub-10 ms delay in the measurement path a real delay |
 | `05_firmware/CMakeLists.txt`, `main/CMakeLists.txt` | ~50 | Build registration |
-| `06_analyze_tap.py` | ~2766 | Offline analysis: integrity checks, descriptive statistics, repeatability, discrimination testing, size-sensitivity fit, classifier comparison with group-wise CV, ROC/AUC, expected-cost threshold analysis |
+| `06_analyze_tap.py` | ~3 800 | Offline analysis: integrity checks, descriptive statistics, repeatability, discrimination testing, size-sensitivity fit, classifier comparison with group-wise CV, ROC/AUC, expected-cost threshold analysis |
 | `results/results.md`, `results/figures/`, `results/features_analysed.csv`, `results/run_log.txt` | — | Generated by the script |
 
 ## D.2 Reproduction
 
 ```
-python 06_analyze_tap.py --demo --outdir results --seed 0
+python 06_analyze_tap.py --demo --outdir results --seed 7
 ```
 
-Deterministic under the seed. With `--demo` the script generates a dataset from the forward model of
-§8.1 and stamps every table and figure `SYNTHETIC DEMONSTRATION DATA — NOT MEASURED`. With real
-feature CSVs (or a directory of recorded waveforms) supplied via `--input`, the same script performs the
-same analysis without the stamp; that is the path that produces the report's *measured* results, and it
-is the same code path, so nothing but the input changes.
+Deterministic under the seed, and **the seed matters**: the numbers in Chapter 8 are the
+seed-7 run recorded in `results/run_log.txt`, and a different seed re-partitions the panels
+and changes the per-size detection rates, the selected reference classifier and the cost
+analysis. Reproduce with the seed above, not with the script's own default.
+
+With `--demo` the script generates a dataset from the forward model of §8.1 and stamps every
+table and figure `SYNTHETIC DEMONSTRATION DATA — NOT MEASURED`. With real feature CSVs (or a
+directory of recorded waveforms) supplied via `--input`, the same script performs the same
+analysis without the stamp; that is the path that produces the report's *measured* results,
+and it is the same code path, so nothing but the input changes.
 
 **Library dependencies.** numpy, scipy, scikit-learn, matplotlib, pandas. Statistics are taken from
 scipy rather than hand-rolled (Kruskal–Wallis, Mann–Whitney, Holm correction), AUC from
@@ -3447,9 +3516,10 @@ report is written to avoid.
 
 ## E.1 Figures
 
-All figures are generated by `06_analyze_tap.py` into `results/figures/`. Figures 1–7 are marked
-**SYNTHETIC** until the script is run on measured data (§9.1). The index states what each figure is
-*for*, so that it can be read against the claim it supports.
+All figures are generated by `06_analyze_tap.py` into `results/figures/`, **except M1–M4**, which are
+analytic Chapter-5 figures produced by `_repro/ch5_figures.py` and live in the same directory. Figures
+1–7 are marked **SYNTHETIC** until the script is run on measured data (§9.1). The index states what each
+figure is *for*, so that it can be read against the claim it supports.
 
 | Fig | File | Content | Supports | Status |
 |---|---|---|---|---|
@@ -3485,6 +3555,7 @@ A CAD or photograph of the assembled probe belongs alongside Figure 1 and is not
 | 8.6 | Classifier comparison with CIs | §8.4 |
 | 8.7 | Expected-cost thresholds | §8.6 |
 | 8.8 | Prediction verdicts | §8.7 |
+| 8.9 | Detection rate by debond size, out-of-fold | §8.4c |
 | B-1 | Proxy-WSSS coverage | Appendix B |
 | B-2 | Standards compliance | Appendix B |
 | C.1 | Wall survey procedure | Appendix C |
