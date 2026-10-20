@@ -1,0 +1,41 @@
+# ---- course material: never publish -------------------------------------
+# The Module Assessment Scheme is VTC teaching material, not this project's work.
+EEE4483 MAS (1).pdf
+
+# ---- third-party standards --------------------------------------------
+# Retrieved copies of ETSI documents. They are freely downloadable from
+# etsi.org and are cited by URL in the report; there is no reason to
+# redistribute them here.
+_tmp_etsi/
+
+# ---- transient working files ------------------------------------------
+# Pre-fix snapshots of the analysis output. These are the products of the
+# earlier version of 06_analyze_tap.py, which did not run to completion and
+# whose one-feature rule was inverted. Kept locally, not published.
+report/results_backup_pre_A/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# ---- ESP-IDF build products -------------------------------------------
+report/05_firmware/build/
+report/05_firmware/sdkconfig
+report/05_firmware/sdkconfig.old
+report/05_firmware/managed_components/
+report/05_firmware/dependencies.lock
+
+# ---- editors and OS ----------------------------------------------------
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# ---- WSOS source snapshots --------------------------------------------
+# report/_sources/wsos/ keeps the *derived* structure (section titles and
+# weights, parsed into .txt and wsos_sections.json) as evidence for
+# Appendix B.1.4. The verbatim HTML captures of WorldSkills' pages are not
+# redistributed — they are publicly retrievable from the URLs in the
+# appendix, and the same reasoning as for the ETSI documents applies.
+report/_sources/wsos/*.html

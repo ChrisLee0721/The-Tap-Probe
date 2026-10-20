@@ -1,0 +1,170 @@
+{
+ "2452": [
+  [
+   1,
+   "Work organization and management",
+   5
+  ],
+  [
+   2,
+   "Communication and interpersonal skills",
+   5
+  ],
+  [
+   3,
+   "Design, assembly, and commissioning",
+   15
+  ],
+  [
+   4,
+   "Software design and implementation",
+   20
+  ],
+  [
+   5,
+   "Networking and cyber security",
+   20
+  ],
+  [
+   6,
+   "Testing, maintenance, and fault-finding",
+   10
+  ],
+  [
+   7,
+   "Enhancement and optimization",
+   15
+  ],
+  [
+   8,
+   "Analysis, evaluation, and reporting",
+   10
+  ]
+ ],
+ "2455": [
+  [
+   1,
+   "Work organization and management",
+   10
+  ],
+  [
+   2,
+   "Communication and interpersonal skills",
+   5
+  ],
+  [
+   3,
+   "Problem solving, innovation, and creativity",
+   20
+  ],
+  [
+   4,
+   "Cybersecurity",
+   20
+  ],
+  [
+   5,
+   "Reliability, scalability, and elasticity",
+   15
+  ],
+  [
+   6,
+   "Performance and optimization",
+   10
+  ],
+  [
+   7,
+   "Operational considerations",
+   10
+  ],
+  [
+   8,
+   "Sustainability",
+   10
+  ]
+ ],
+ "2461": [
+  [
+   1,
+   "Work organization and management",
+   5
+  ],
+  [
+   2,
+   "Communication and interpersonal skills",
+   10
+  ],
+  [
+   3,
+   "Secure systems design and creation",
+   10
+  ],
+  [
+   4,
+   "Secure systems operation and maintenance",
+   15
+  ],
+  [
+   5,
+   "Secure systems protection and defence",
+   15
+  ],
+  [
+   6,
+   "Operations and Management",
+   20
+  ],
+  [
+   7,
+   "Intelligence collection and analysis",
+   10
+  ],
+  [
+   8,
+   "Investigation and Digital Forensics",
+   15
+  ]
+ ],
+ "2694": [
+  [
+   1,
+   "Work organization and management",
+   5
+  ],
+  [
+   2,
+   "Communication and interpersonal skills",
+   5
+  ],
+  [
+   3,
+   "Project initiation and holistic planning",
+   5
+  ],
+  [
+   4,
+   "Planning and design of security systems",
+   20
+  ],
+  [
+   5,
+   "Installation and implementation of security systems",
+   10
+  ],
+  [
+   6,
+   "Debugging and optimization of security systems",
+   30
+  ],
+  [
+   7,
+   "Application of artificial intelligence and digital technologies",
+   10
+  ],
+  [
+   8,
+   "Maintenance and repair",
+   15
+  ]
+ ]
+}

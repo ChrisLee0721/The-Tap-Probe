@@ -1,0 +1,184 @@
+WorldSkills Occupational Standards - Intelligent Security Technology 
+ Skip to main content 
+ Menu
+ Skills 
+ Countries 
+ What we do 
+ Latest 
+ Explore 
+ Log in 
+ Competitions 
+ Conference 
+ Projects 
+ Campaigns 
+ Home 
+ What we do 
+ Projects 
+ Occupational Standards 
+ WorldSkills Shanghai 2026 
+ Intelligent Security Technology 
+ Intelligent Security Technology 
+ WorldSkills Occupational Standards (WSOS) 
+ Occupation description and WSOS
+ The name of the skill competition is 
+ Intelligent Security Technology 
+ Description of the associated work role(s) or occupation(s) 
+ Modern society requires increasingly sophisticated security systems for the protection of its indoor and outdoor spaces, facilities, and buildings. These are to safeguard people, property, facilities, and infrastructure from theft, harm, intrusion, disruption, attack, and other dangers. As the perpetrators of security breaches become increasingly sophisticated, so intelligent security systems need to be planned, installed, and maintained to remove or minimise risk, and to aid detection and recovery if need arises. 
+ Intelligent Security Technology integrates various advanced technologies, including but not limited to high-definition video surveillance, AI-powered image analysis, big data processing, intelligent sensor networks, and automated warning and response mechanisms. The primary goal is to establish a comprehensive, multi-layered, and intelligent security framework that enables precise perception, real-time analysis, and rapid response to elements such as people, vehicles, and environments within the monitored area. This effectively prevents various safety incidents and illegal activities. 
+ The Intelligent Security Technician is responsible for the following tasks. 
+ Consult with clients to assess risks and determine security requirements according to the assets in need of protection Inspect installation sites to
+ Assess the risks and review the safeguarding options while enabling their proper functions to continue Appraise the implications for construction and installation 
+ Create or contribute to specifications or blueprints for costing and pricing Negotiate with clients for the installation, maintenance, servicing, and/or repair of the agreed security measures and systems Install a range of systems, sub-systems, and devices, according to the nature of the risks and agreed solutions Test, modify, and commission the systems and devices Explain and demonstrate to clients the proper uses of the security systems and devices Provide documentation and reports to support the continuing viability of associated safeguards such as insurance and emergency measures Maintain and repair security systems and devices to ensure their effective functioning. 
+ The Intelligent Security Technician uses the capabilities of modern technology to optimise prevention, detection, and response to security breaches. These generally, but are not limited to, include intrusion and emergency alarms, video surveillance, entrance and exit control, building intercoms, comprehensive security management platforms, environmental monitoring alarms, and other systems. Artificial intelligence also has a part to play in risk analysis. 
+ The outstanding Intelligent Security Technician will master the complexities and nuances of client needs and find clever solutions that enhance security without intruding on the normal uses and activities of property, facilities and other assets. This is achieved by outstanding service from intelligent design through to efficient maintenance, repair and updating. In this way they will ensure that security is a recognised friend to authorised users as well as a strong deterrent to those who seek to breach it. 
+ The WorldSkills Occupational Standards (WSOS) 
+ General notes on the WSOS 
+ The WSOS specifies the knowledge, understanding, skills, and capabilities that underpin international best practice in technical and vocational performance. These are both specific to an occupational role and also transversal. Together they should reflect a shared global understanding of what the associated work role(s) or occupation(s) represent for industry and business ( www.worldskills.org/WSOS ). 
+ The skill competition is intended to reflect international best practice as described by the WSOS, to the extent that it can. The Standard is therefore a guide to the required training and preparation for the skill competition. 
+ In the skill competition the assessment of knowledge and understanding will take place through the assessment of performance. There will only be separate tests of knowledge and understanding where there is an overwhelming reason for these. 
+ The Standard is divided into distinct sections with headings and reference numbers added. 
+ Each section is assigned a percentage of the total marks to indicate its relative importance within the Standards. This is often referred to as the “weighting”. The sum of all the percentage marks is 100. The weightings determine the distribution of marks within the Marking Scheme. 
+ Through the Test Project, the Marking Scheme will assess only those skills and capabilities that are set out in the WorldSkills Occupational Standards. They will reflect the Standards as comprehensively as possible within the constraints of the skill competition. 
+ The Marking Scheme will follow the allocation of marks within the Standards to the extent practically possible. A variation of up to five percent is allowed, if this does not distort the weightings assigned by the Standards. 
+ WorldSkills Occupational Standards 
+ Section 
+ Relative importance (%) 
+ 1 
+ Work organization and management 
+ 5 
+ The individual needs to know and understand: 
+ Health and safety regulations, obligations, documents, and procedures, including the use of personal protective equipment (PPE) First aid principles and practices International, national, and proprietary standards, regulations and guidelines for constructing security and protection systems Official approval processes for constructing security and protection systems, according to their types and purposes The applications, scope and functions of security and protection systems Key project criteria, including cost, quality, and completion Principles and applications for power grounding and lightning protection Principles and applications of electrical safety measures during construction The importance of keeping records of progress and changes in implementation for the operation and maintenance of the system The importance of protecting the integrity and security of data when processing information Sustainability measures for handling waste for recycling safely The importance of accuracy, inspections and attention to detail The importance of methodical working The quality assurance process The impacts of new technology How to continuously maintain and develop professional and technical knowledge relating to security and protection. 
+ The individual shall be able to: 
+ Follow health and safety standards, rules and regulations at all times Maintain safe working environments and personal protection Create and interpret engineering drawings Plan projects to achieve optimal efficiency in progress and completion Assess whether configuration plans fit the on-site environments Safely and consistently select, use, clean, maintain and store tools and equipment Regularly schedule tasks and re-prioritize multiple tasks according to changing situations and demands Manage the stocks and flows of construction materials and equipment Meet personal, company, and industry standards, including up-to-date certification Keep up to date with new regulations, systems, products, and methods of work Share new ideas and possibilities with others for the benefit of colleagues, clients and organizations 
+ 2 
+ Communication and interpersonal skills 
+ 5 
+ The individual needs to know and understand: 
+ The importance of listening in effective communication. The job roles and responsibilities of colleagues and the most effective methods for communicating with them The importance of establishing and maintaining effective working relationships with colleagues and managers Principles and techniques for efficient and effective teamwork Principles and techniques for resolving misunderstandings and conflicts. 
+ The individual shall be able to: 
+ Listen carefully to others and ask questions to deepen understanding of complex situations Communicate with colleagues verbally and in writing Adapt to the changing needs of colleagues Lead and/or support the development of strong and effective teams Communicate with external organisations to gain project approval or consent, as required Share professional knowledge and skills with colleagues, and give support or coach others as required or helpful Deal professionally with tension and conflict to support their positive resolution Follow problem solving processes and apply techniques to generate options and potential solutions Maintain concentration, focus, and demeanour in complex multisystem working environments. 
+ 3 
+ Project initiation and holistic planning 
+ 5 
+ The individual needs to know and understand: 
+ Each organization’s structure and procedures for generating, negotiating, and securing sales The range of roles that contribute to the sales process The range of information required to create viable sales contracts The scope and limits of one’s own professional role in engaging with clients and their requirements The need to define, analyze, and record clients’ needs accurately The available options for meeting clients’ needs, and their relative strengths and limitations technically and financially The need to interpret and check clients’ needs by close inspection of the asset (such as a building, infrastructure, or environment) that requires security The feasibility and practical implications of implementing the potential security solutions, together with feasible and suitable alternatives Principles and methods of costing and pricing in detail, and overall Principles and methods for designing and producing specifications and blueprints, using appropriate software. 
+ The individual shall be able to: 
+ Prepare for their role in the sales process by reading research and consultation with colleagues Use close questioning and analysis with clients and/or colleagues to understand both the clients’ needs and their technical and practical implications Formulate potential options to meet clients’ needs, in liaison with experts, professionals, and suppliers Manage clients’ requirements and expectations positively and ethically Inspect the asset (such as building, infrastructure, or environment) requiring security solutions to test, confirm, or modify, initial thinking Use standard or bespoke methods to cost the installation of the security system and its components, adding alternatives and their financial implications as appropriate Create and/or interpret specifications and blueprints for constructing and installing the infrastructure and security components Liaise with relevant colleagues and check one’s work throughout the design process. 
+ 4 
+ Planning and design of security systems 
+ 20 
+ The individual needs to know and understand: 
+ Communication methods and approaches for understanding user needs Planning and design methodologies for security systems Standards governing the use of infrastructure and auxiliary components Recognized industry standards and regulations for technical drawings and implementation Design specifications for security management system diagrams Safety standards for the planning and design phases of security systems Good practice in the use of security system drawing tools Fundamental concepts of security system terminals Methods for reading and interpreting the structure and function identification of security systems. 
+ The individual shall be able to: 
+ Read, interpret, and analyze technical drawings and specifications Design scientifically sound and practical security system solutions tailored to the characteristics of security technologies and products Create system architecture diagrams for various security systems Evaluate project environments to enhance safety and reliability Plan and apply security technology systems effectively Analyze project plans and specifications for intelligent security systems Develop design plans in compliance with international standards. 
+ 5 
+ Installation and implementation of security systems 
+ 10 
+ The individual needs to know and understand: 
+ The nature and functionality of security devices Fundamentals of security and electronics Core concepts of security applications Applicable environments for security systems and applications Engineering documentation, including drawings, wiring diagrams schematics, technical manuals, and specifications Components and composition of security applications Requirements and standards for security applications Methods for analysing the needs and specifications of security applications Techniques for selecting appropriate solutions for security applications. 
+ The individual shall be able to: 
+ Analyze client requirements effectively for the installation and implementation of security system applications Evaluate construction environments and prepare appropriately for project execution Select optimal security design solutions tailored to specific application requirements Read and interpret engineering drawings, wiring diagrams, schematics, technical manuals, and related specifications Assess functionality and identify key parameter requirements for system components Choose suitable components based on the specific characteristics of security applications Use specialized instruments and meters to facilitate installation and ensure proper implementation Adopt scientifically sound, energy-efficient, and environmentally sustainable installation methods Adhere strictly to safety regulations and implement necessary safety measures Complete system installations accurately in accordance with construction drawings. 
+ 6 
+ Debugging and optimization of security systems 
+ 30 
+ The individual needs to know and understand: 
+ Fundamental theories of the overall architecture of security systems Connection methods, data flow, and communication protocols between subsystems in security systems Industry standards and specifications for the debugging and optimization of security systems Fundamental principles of debugging security products Knowledge and techniques for optimizing security application systems Principles of energy efficiency management within security application systems Control principles and mechanisms in security application systems. 
+ The individual shall be able to: 
+ Select and optimize application solutions for security systems Achieve energy efficiency while meeting system requirements and operational parameters Enhance and optimize the hardware performance of security products Improve the user experience of security products Calibrate hardware devices within security systems Utilize software debugging tools to commission and fine-tune security systems Debug and optimize performance metrics and indicators of security systems. 
+ 7 
+ Application of artificial intelligence and digital technologies 
+ 10 
+ The individual needs to know and understand: 
+ Fundamental theories of artificial intelligence (AI) technologies Concepts of application scenarios for digital technologies Basic algorithms of artificial intelligence Foundational knowledge of digital technologies Knowledge of the application of intelligent technologies across systems Concepts of cloud computing and edge computing. 
+ The individual shall be able to: 
+ Integrate AI-related data and systems effectively Apply digital technologies to foundational application scenarios Master data processing and algorithm adaptation for AI algorithms Construct intelligent security network architectures Coordinate and utilise edge computing and cloud computing collaboratively. 
+ 8 
+ Maintenance and repair 
+ 15 
+ The individual needs to know and understand: 
+ How circumstances may change in the type of risk and client need Principles and procedures for routine maintenance and servicing How to judge between repair or replacement The risks to clients of malfunctions and delay The importance of retaining and/or restoring the confidence of clients in the event of malfunction or ineffectiveness Construction drawings and technical documentation for security systems applications Maintenance standards in the security industry Management protocols for the operational documentation of security systems. 
+ The individual shall be able to: 
+ Perform routine maintenance Perform software unit testing and ICT troubleshooting Test sub-systems to ensure proper functioning or diagnose malfunctions Examine systems to locate problems such as loose or broken connections and/or equipment failure Repair or replace faulty connections or equipment Verify that the existing systems continue to meet current standards Advise clients on new equipment, regulations, and areas or functions requiring upgrading Recycle replaced equipment and material in a sustainable way Offer backup and disaster recovery support Complete and share reports and documentation to users and others who require it Coordinate multi-system operational maintenance. 
+ Total 
+ 100 
+ References for industry consultation 
+ General notes 
+ WorldSkills is committed to ensuring that the WorldSkills Occupational Standards fully reflect the dynamism of internationally recognized best practice in industry and business. To do this WorldSkills approaches a number of organizations across the world that can offer feedback on the draft Description of the Associated Role and WorldSkills Occupational Standards on a two-yearly cycle. 
+ In parallel to this, WSI consults three international occupational classifications and databases: 
+ ISCO-08: ( http://www.ilo.org/public/english/bureau/stat/isco/isco08/ ) 
+ ESCO: ( https://ec.europa.eu/esco/portal/home ) 
+ O*NET OnLine ( www.onetonline.org/ ) 
+ References 
+ This WSOS appears most closely to relate to ISCO-08 unit group 3513: Computer Network and Systems Technicians. (pp. 226-7). 
+ In greater detail it is a more advanced version of O*NET 49-2098: Security and Fire Alarm Systems Installers: https://www.onetonline.org/link/summary/49-2098.00 
+ It is also a more advanced version of ESCO 7422.5: Security Alarm Technician: http://data.europa.eu/esco/occupation/c0c1364d-f784-4e76-8d3f-1e998dc6545d 
+ Unfortunately no feedback was received from business and industry for WorldSkills Shanghai 2026. 
+ Last updated: 05.03.2026 07:24 (GMT)
+ © 2026 WorldSkills International
+ Home 
+ What we do 
+ Projects 
+ Occupational Standards 
+ WorldSkills Shanghai 2026 
+ Intelligent Security Technology 
+ Search 
+ Search 
+ Search 
+ WorldSkills 
+ Skills 
+ Countries 
+ What we do 
+ Latest 
+ Explore 
+ Glossary 
+ What we do 
+ Competitions 
+ Projects 
+ Conference 
+ Campaigns 
+ Our community 
+ Champions Trust 
+ Experts Faculty 
+ Latest 
+ News 
+ Events 
+ Resources 
+ Press releases 
+ Videos 
+ Photos 
+ Newsletter 
+ Social 
+ Facebook 
+ X 
+ YouTube 
+ Flickr 
+ Instagram 
+ TikTok 
+ LinkedIn 
+ About us 
+ Board 
+ Secretariat 
+ Vision and mission 
+ History 
+ General Assemblies 
+ Official Documents 
+ Annual Reports 
+ Final Reports 
+ Partners 
+ Our brand 
+ Press room 
+ Get involved 
+ How WorldSkills works 
+ Become a partner 
+ Become a member country 
+ How to compete 
+ WorldSkills Museum 
+ Info for 
+ Members 
+ Partners 
+ Journalists 
+ © 2026 WorldSkills International 
+ Privacy 
+ Terms 
+ Contact 
+ Log in

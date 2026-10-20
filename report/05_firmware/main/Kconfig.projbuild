@@ -1,0 +1,142 @@
+menu "Tap-test probe configuration"
+#
+# Kconfig.projbuild  --  EEE4483 tap-test probe
+#
+# These are the tunables that are safe to change from `idf.py menuconfig` without
+# editing source.  Everything here has a matching default in probe_config.h, so
+# if this file is not picked up the firmware still builds and runs.
+#
+# If you change a value here, `idf.py build` is enough -- no other file needs
+# editing, because probe_config.h reads these symbols.
+#
+
+    menu "Strike / thermal limits"
+
+        config PROBE_MIN_STRIKE_INTERVAL_MS
+            int "Minimum interval between strikes (ms)"
+            range 500 60000
+            default 2000
+            help
+                Enforced in software before every strike.  Lowering this below
+                about 1000 ms risks overheating the intermittent-duty solenoid:
+                it is a 23 W, 12 V part and is only rated for short pulses.
+
+        config PROBE_STRIKE_PULSE_MS
+            int "Normal energising pulse width (ms)"
+            range 5 120
+            default 25
+            help
+                The pulse actually applied per strike.  25 ms gives a crisp tap
+                with the armature well into its travel.  If the tap sounds weak,
+                raise this in small steps before touching the mechanics.
+
+        config PROBE_MAX_STRIKE_DURATION_MS
+            int "Hard failsafe maximum pulse width (ms)"
+            range 20 300
+            default 120
+            help
+                Absolute ceiling.  An independent esp_timer de-asserts the MOSFET
+                gate after this time no matter what the application task is doing.
+                Do not raise this without checking the solenoid's duty rating.
+
+        config PROBE_DUTY_WINDOW_MS
+            int "Thermal averaging window (ms)"
+            range 5000 300000
+            default 30000
+            help
+                Length of the sliding window over which strikes are counted.
+
+        config PROBE_DUTY_MAX_STRIKES
+            int "Maximum strikes per averaging window"
+            range 1 200
+            default 15
+            help
+                With the default window this is one strike per two seconds
+                sustained.  Exceeding it trips a forced cooldown and publishes an
+                event so the fault is visible on the dashboard.
+
+        config PROBE_DUTY_COOLDOWN_MS
+            int "Forced cooldown after a thermal trip (ms)"
+            range 5000 600000
+            default 60000
+            help
+                No strikes are accepted at all during the cooldown.
+
+    endmenu
+
+    menu "Sensing and DSP"
+
+        config PROBE_ENABLE_ACCEL
+            bool "Enable the MPU6050 auxiliary accelerometer"
+            default y
+            help
+                The accelerometer is AUXILIARY only.  It reports how well the
+                operator held the probe against the wall (contact quality).  It
+                does not detect debonding and is never used for the grade.
+
+        config PROBE_CROSSOVER_HZ_PROMPT_ONLY
+            bool "Show a reminder about the DSP band limits"
+            default n
+            help
+                The analysis band (300..15000 Hz), the crossover (1000 Hz) and
+                the FFT length (512) are compile-time constants in
+                probe_config.h rather than Kconfig symbols, because the
+                classification thresholds are expressed against them and moving
+                one without re-deriving the others is the most common way to make
+                the probe look broken.  Edit the header deliberately.
+
+    endmenu
+
+    menu "Connectivity"
+
+        config PROBE_MQTT_QOS
+            int "MQTT publish QoS"
+            range 0 2
+            default 1
+            help
+                QoS 1 gives at-least-once delivery.  QoS 2 doubles the handshake
+                traffic for no practical benefit at this message rate.
+
+        config PROBE_NTP_SERVER
+            string "SNTP server"
+            default "pool.ntp.org"
+            help
+                Timestamps are published as 0 until the first successful sync, so
+                a dashboard can tell "clock never set" from "clock is wrong".
+
+        config PROBE_ENABLE_CONSOLE
+            bool "Enable the UART console command handler"
+            default y
+            help
+                Adds the `measure`, `calibrate`, `set th`, `dump`, `reboot`,
+                `status` and `provision` commands on the default UART.  Turn this
+                off for a production build if you want the UART free for
+                something else.  Note that `provision` writes WiFi and MQTT
+                credentials in plain text to NVS; see the README security note.
+
+    endmenu
+
+    menu "Demonstration mode"
+
+        config PROBE_SIMULATION_MODE
+            bool "SIMULATION MODE: synthesise features, do not measure"
+            default n
+            help
+                USE FOR DEMONSTRATION AND SOFTWARE TESTING ONLY.
+
+                When enabled, the device does not read the microphone's features
+                from the acoustics at all: it synthesises plausible feature
+                values so that the MQTT path, the JSON schema and the dashboard
+                can be demonstrated before the transducer chain is finished.
+
+                Every published payload carries "sp":true and the boot log prints
+                a large warning.  Data from this mode MUST NEVER be presented as a
+                measurement, in the report or anywhere else.
+
+                Design notes that remain valid in this mode: the strike interlock
+                is still enforced, and the accelerometer is still read if present
+                (so the timing of the real system is exercised).
+
+    endmenu
+
+endmenu

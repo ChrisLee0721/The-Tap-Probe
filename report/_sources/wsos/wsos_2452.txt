@@ -1,0 +1,207 @@
+WorldSkills Occupational Standards - Industry 4.0 
+ Skip to main content 
+ Menu
+ Skills 
+ Countries 
+ What we do 
+ Latest 
+ Explore 
+ Log in 
+ Competitions 
+ Conference 
+ Projects 
+ Campaigns 
+ Home 
+ What we do 
+ Projects 
+ Occupational Standards 
+ WorldSkills Shanghai 2026 
+ Industry 4.0 
+ Industry 4.0 
+ WorldSkills Occupational Standards (WSOS) 
+ Occupation description and WSOS
+ The name of the skill competition is 
+ Industry 4.0 
+ Description of the associated work role(s) or occupation(s) 
+ Information and communication technologies (ICT) are impacting on manufacturing and production processes to the extent that their effects are likened to a “fourth industrial revolution”; hence the term “Industry 4.0”. Others use terms such as “smart production”. The business case for introducing ICT is most immediately clear with large scale, complex manufacturing, where significant gains can result from early adoption. However, in diverse ways ICT will have a far-reaching impact, forcing rapid adaptation to the work people do, and the knowledge, skills and attributes that they need to do it with ICT enables 
+ variety and individualization in products and services; shortened response times for production processes; greater productivity through reduced time and costs; information to be collected, shared and used in different ways for new purposes. 
+ For the Digital Production Systems Technician, implementing Industry 4.0 requires contextual awareness, including the business case as it affects their responsibilities. In the short term at least, the Technician may lack sufficient knowledge, skills and attributes to be able to grasp an assignment as a whole, since their initial and continuing training may have been in production technologies, or ICT. They may also not have gained the wider perspectives and understanding that are less crucial in more static environments. Therefore initially, and perhaps permanently in larger organizations, the required expertise and perspectives may need to come together in two or more personnel. 
+ The role of the Digital Production Systems Technician is to understand the business case for enhancement, and to design and implement technical responses accordingly. Assembled and commissioned hardware in virtual and real context using various digital tools and technology provide the basis for programming, and the design and implementation of cyber security measures on real and virtual production processes. Responding to the business need, smart maintenance may be a universal enhancement. Optimization may be more business specific and take several paths, especially in relation to the role of hardware, connectivity, the location of data points, and the purposes and types of information and intelligence. 
+ A flexible and open approach, combined with strong technical expertise, alertness to risk and security needs, and a recognition of the endless possibilities for optimization, are the hallmark of the outstanding and successful Digital Production Systems Technician. 
+ The WorldSkills Occupational Standards (WSOS) 
+ General notes on the WSOS 
+ The WSOS specifies the knowledge, understanding, skills, and capabilities that underpin international best practice in technical and vocational performance. These are both specific to an occupational role and also transversal. Together they should reflect a shared global understanding of what the associated work role(s) or occupation(s) represent for industry and business ( www.worldskills.org/WSOS ). 
+ The skill competition is intended to reflect international best practice as described by the WSOS, to the extent that it can. The Standard is therefore a guide to the required training and preparation for the skill competition. 
+ In the skill competition the assessment of knowledge and understanding will take place through the assessment of performance. There will only be separate tests of knowledge and understanding where there is an overwhelming reason for these. 
+ The Standard is divided into distinct sections with headings and reference numbers added. 
+ Each section is assigned a percentage of the total marks to indicate its relative importance within the Standards. This is often referred to as the “weighting”. The sum of all the percentage marks is 100. The weightings determine the distribution of marks within the Marking Scheme. 
+ Through the Test Project, the Marking Scheme will assess only those skills and capabilities that are set out in the WorldSkills Occupational Standards. They will reflect the Standards as comprehensively as possible within the constraints of the skill competition. 
+ The Marking Scheme will follow the allocation of marks within the Standards to the extent practically possible. A variation of up to five percent is allowed, if this does not distort the weightings assigned by the Standards. 
+ WorldSkills Occupational Standards 
+ Section 
+ Relative importance (%) 
+ 1 
+ Work organization and management 
+ 5 
+ The individual needs to know and understand: 
+ The principles and parameters of integrated automated production Their specific roles within integrated automated production Principles, applications, accountabilities and techniques for project management Principles and applications of safe working practice broadly and specifically The purpose, use, care and maintenance of equipment, facilities and materials Principles and methods for organizing, controlling and managing work and its outcomes Their personal strengths and limitations relative to the roles, projects and modules assigned. 
+ The individual shall be able to: 
+ Set up and maintain a safe, clean and efficient work area Maintain an appropriate state of preparation and readiness to receive, schedule and act on requests and assignments efficiently, effectively and safely Order, select, use and care for all equipment, facilities and materials in accordance with manufacturers’ instructions and accepted good practice Conduct self and all operations with care and consideration for other personnel, cost efficiency and the environment Monitor progress, modifying or changing plans or approaches through a rational process, within their personal authority Complete assignments or modules, and restore the work area to its state of readiness for future use Reflect on and review their personal performance, as part of continuing professional development. 
+ 2 
+ Communication and interpersonal skills 
+ 5 
+ The individual needs to know and understand: 
+ Their personal strengths and limitations
+ In perception and awareness In communication with known and unknown others In working as a colleague, leader, learner, or assistant 
+ Principles of communication and purposeful social learning Standards and protocols for formal and informal, direct and indirect communication with team members, managers and clients The technical language required for the role, including the content and structures of the English language Standards and protocols for communicating electronically The scope and purposes of documentation in hard copy and electronic format The requirements for routine and exception reports, in all formats Principles and methods for analysing, synthesizing, using and communicating data. 
+ The individual shall be able to: 
+ receive assignments, identify their salient points, and ask questions for clarification and confirmation read, interpret and extract technical data and instructions from given documentation in all available formats discuss and plan with relevant others the complex, joint and overlapping elements of assignments communicate verbally, in writing, and electronically, using methods that ensure clarity, efficiency and effectiveness make and retain reports on progress, issues and actions, in the required formats give and take feedback and support to and from others review the team’s performance, one’s own contribution, and individual and collective learning points. 
+ 3 
+ Design, assembly, and commissioning 
+ 15 
+ The individual needs to know and understand: 
+ Practical applications of engineering science and technology to the design and production of goods and services in virtual and real contexts Principles and directions for integrating local/artificial intelligence with wider communication capacities Principles and applications for 
+ Design Assembly Connectivity and Commissioning of hardware and peripherals to meet cyber-physical requirements 
+ Principles and methods for integrating autonomous subsystems and components Principles and applications for data collection, storage, networking and use. 
+ The individual shall be able to: 
+ Read and interpret instructions, using questioning techniques and research to check, verify and prepare Design systems for the automation and communication of production modules, with the given parameters for cyber-physical systems Test and implement design solutions Assemble machines and equipment Select and apply sensors, communication technologies, and devices for motion control, position sensing, pressure testing and electronic communication Test the performance of electrical, electronic, mechanical and integrated systems and equipment, relative to their intended purpose Apply mechatronic or automated solutions to the transfer of materials, components or finished goods Integrate the equipment and sub-systems to ensure readiness for data capture, networking, exchange and use Commission the system Create and maintain project files. 
+ 4 
+ Software design and implementation 
+ 20 
+ The individual needs to know and understand: 
+ Mathematics and their applications Principles and applications of industrial automation Computer capabilities, subject matter, and symbolic logic Computer hardware and software, and their applications The required standards for code conventions, style guides, user interface designs, managing directories, and files Principles and applications of human-machine communication. 
+ The individual shall be able to: 
+ Write, analyse, review, and rewrite programs Correct errors by making appropriate changes and rechecking that the desired results are produced Perform or direct revision, repair, or expansion of existing programs to increase operating efficiency or adapt to new requirements Write, update, and maintain computer programs or software packages to handle specific jobs such as tracking inventory, storing or retrieving data, or controlling other equipment Conduct trial runs of programs and software applications to ensure they produce the desired information and the instructions are correct Principles of databases and data storage/retrieval Create, modify and maintain databases Prepare detailed workflow charts and diagrams that describe input, output, and logical operation, and convert them into a series of instructions coded in a computer language Compile and write documentation of program development and subsequent revisions, using protocols to ensure that others can understand the programs Consult with others to define and resolve problems in running programs Perform systems analysis and programming modules to maintain and control the use of computer systems software. Write or contribute to instructions or manuals to guide end users Investigate whether networks, workstations, the central processing unit of the system, or peripheral equipment are responding to a program's instructions. Implement functions to allow for data exchange using common industrial protocols Implement functions to allow for data exchange using M2M protocols 
+ 5 
+ Networking and cyber security 
+ 20 
+ The individual needs to know and understand: 
+ The scale and nature of the organization’s vulnerability to breaches in information security The nature and causes of incidental and accidental data breaches, both human and systemic Principles and methodologies for establishing and maintaining maximum information security and data integrity Principles and methodologies for addressing minor breaches Development environment software Network protocols and topology Network monitoring software Web platform development software. 
+ The individual shall be able to: 
+ Design and implement network protocols and topologies to ensure secure and effective exchange of information between devices Implement network protocols Develop plans to safeguard computer files against accidental or unauthorized modification, destruction, or disclosure, and meet emergency data processing needs Maintain levels of preparedness and the availability of preventative and defensive tools commensurate with risks and trends in malicious attacks Encrypt data transmissions and erect firewalls to conceal confidential information during transmitted, and to keep out tainted digital transfers Conduct tests of data processing systems to ensure safe functioning of data processing and security measures Modify computer security files to incorporate new software, correct errors, or change individual access status Monitor the use of data files and regulate access to safeguard information Review violations of procedures and take steps to prevent their repeating Document computer security and emergency measures, policies, procedures and tests Train users and promote security awareness to ensure system security and improve server and network efficiency. 
+ 6 
+ Testing, maintenance, and fault-finding 
+ 10 
+ The individual needs to know and understand: 
+ Principles and applications of smart maintenance, based on data, to enable
+ Condition monitoring Data analysis and correlation Predictive maintenance 
+ The use of augmented reality and other emerging technologies and tools The use of simulation models, reconfiguration and virtualization Operational parameters/process data The use of constraints and variables, restrictions, alternatives, conflicting objectives, and numerical parameters for conceptualizing and defining problems Principles and methodologies for designing alternatives and making decisions and recommendations The purposes and nature of maintenance records. 
+ The individual shall be able to: 
+ Identify the parts of the production system to which to apply smart maintenance Establish the parameters for the parts’ operation Use the access tools at the appropriate data points, or on a mobile basis Monitor the condition using augmented reality or other tools Undertake preventive or predictive maintenance by reviewing alternative courses of action and scheduling or recommending the optimal measure(s) Use the available technology and measures to effect maintenance with least disruption to production. 
+ 7 
+ Enhancement and optimization 
+ 15 
+ The individual needs to know and understand: 
+ The potential for smart production systems to be enhanced to
+ Enable greater flexibility and individualization in production Shorten reaction and response time in production Reduce time and cost in production Collect, share and use information for continuous enhancement 
+ Principles and methods for identifying, analysing and pursuing opportunities for enhancement The implications of increased data storage and exchange Principles and methods for cost benefit analysis Principles and methods for work organization and workforce planning and development. 
+ The individual shall be able to: 
+ Reduce costs by removing waste ad consumption caused by
+ Over-production Stock and storage Over- and unnecessary processing Poor quality Transport and movement Waiting time 
+ Analyse and recommend opportunities for optimization using
+ Simulations Prototyping Digital shadows/twins 
+ Identify and exploit opportunities for
+ Energy efficiency and sustainable practice Greater lateral and vertical integration The use of the Cloud 
+ Identify the cost-benefit implications, financial and human, of optimization. 
+ 8 
+ Analysis, evaluation, and reporting 
+ 10 
+ The individual needs to know and understand: 
+ Principles and applications of critical thinking and complex problem-solving The uses and availability of self-monitoring equipment and tools The bases, techniques and tools for creating and using analytical models of performance, including
+ Performance targets or specifications Numerical and quantifiable parameters Data requirements Constraints and variables Alternatives 
+ How to conceptualize, define and evaluate problems referred to them, and to derive recommendations for solutions The content, structure and presentation for reports serving different purposes Principles and applications to presentations for management, peers and clients Cost benefit analysis, and its uses for recommending alternative courses of action. 
+ The individual shall be able to: 
+ Take account of requirements for monitoring, review and evaluation in the design of the system and sub-systems Optimize the use of self-monitoring equipment and tools to the extent feasible Design and apply an appropriate model for monitoring and evaluating performance relative to specification Anticipate requests for feedback and reports, and prepare accordingly on a data rational basis Prepare reports in appropriate formats for routine and exception reporting Make presentations customized to particular groups and individuals Maintain awareness of new possibilities and options for improvement, making recommendations on the basis of return on investment. 
+ Total 
+ 100 
+ References for industry consultation 
+ General notes 
+ WorldSkills is committed to ensuring that the WorldSkills Occupational Standards fully reflect the dynamism of internationally recognized best practice in industry and business. To do this WorldSkills approaches a number of organizations across the world that can offer feedback on the draft Description of the Associated Role and WorldSkills Occupational Standards on a two-yearly cycle. 
+ In parallel to this, WSI consults three international occupational classifications and databases: 
+ ISCO-08: ( http://www.ilo.org/public/english/bureau/stat/isco/isco08/ ) 
+ ESCO: ( https://ec.europa.eu/esco/portal/home ) 
+ O*NET OnLine ( www.onetonline.org/ ) 
+ References 
+ These two roles relate most closely to Mechatronic Technician: 
+ http://data.europa.eu/esco/occupation/edf2e989-d7c5-496e-b365-81fc5cb9eb39 
+ and a technician version of Mechatronics Engineers: 
+ http://data.europa.eu/esco/occupation/a7c1d23d-aeca-4bee-9a08-5993ed98b135 
+ And to IT System Developer: 
+ http://data.europa.eu/esco/occupation/a7c1d23d-aeca-4bee-9a08-5993ed98b135 
+ and Software Developers, Systems Developers: 
+ https://www.onetonline.org/link/summary/15-1133.00 . 
+ ILO 3115 and 2511 
+ The following table indicates which organizations were approached and provided valuable feedback for the Description of the Associated Role and WorldSkills Occupational Standards in place for WorldSkills Shanghai 2026. 
+ Organization 
+ Contact name 
+ Bühler AG 
+ Denis Forster, Leader Vocational Trainer MSW - Mechatronic Schule Winterthur Olivier Riesenv, Vocational trainer of education Automatic technician 
+ Last updated: 22.04.2026 12:34 (GMT)
+ © 2026 WorldSkills International
+ Home 
+ What we do 
+ Projects 
+ Occupational Standards 
+ WorldSkills Shanghai 2026 
+ Industry 4.0 
+ Search 
+ Search 
+ Search 
+ WorldSkills 
+ Skills 
+ Countries 
+ What we do 
+ Latest 
+ Explore 
+ Glossary 
+ What we do 
+ Competitions 
+ Projects 
+ Conference 
+ Campaigns 
+ Our community 
+ Champions Trust 
+ Experts Faculty 
+ Latest 
+ News 
+ Events 
+ Resources 
+ Press releases 
+ Videos 
+ Photos 
+ Newsletter 
+ Social 
+ Facebook 
+ X 
+ YouTube 
+ Flickr 
+ Instagram 
+ TikTok 
+ LinkedIn 
+ About us 
+ Board 
+ Secretariat 
+ Vision and mission 
+ History 
+ General Assemblies 
+ Official Documents 
+ Annual Reports 
+ Final Reports 
+ Partners 
+ Our brand 
+ Press room 
+ Get involved 
+ How WorldSkills works 
+ Become a partner 
+ Become a member country 
+ How to compete 
+ WorldSkills Museum 
+ Info for 
+ Members 
+ Partners 
+ Journalists 
+ © 2026 WorldSkills International 
+ Privacy 
+ Terms 
+ Contact 
+ Log in
