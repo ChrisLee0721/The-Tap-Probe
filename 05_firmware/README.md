@@ -21,16 +21,77 @@ One press of the trigger is **one measurement**:
 
 1. A **solenoid** delivers a single mechanical tap to the wall (a short, bounded
    current pulse).
-2. An **I²S MEMS microphone** records the resulting tap tone into a fixed buffer.
-3. The **ESP32 performs the signal processing on-device**: DC removal, Hann window,
-   a 1024-point radix-2 FFT, and from that a small set of spectral and envelope
-   features.
-4. An **MPU6050 accelerometer** is read at the same instant as a *separate, auxiliary*
-   channel that grades how well the probe was held against the wall.
+2. The two **LSM6DS3 modules replace the microphone** as the vibration sensing
+   channel. LSM6DS3-1 is mounted near the wall/contact tip; LSM6DS3-2 is mounted
+   on the probe body as a reference for striker and base motion.
+3. The firmware compares the two acceleration responses instead of recording
+   airborne sound. This is a different sensing method, not an equivalent
+   microphone replacement, and must be re-calibrated with reference panels.
+4. The **VL53L0X** supplies distance/context data for the user interface.
 5. The probe assigns a **grade G0 / G1 / G2** locally using a simple two-condition
-   rule.
+   rule only when a validated sensing channel is present.
 6. The measurement is published as **JSON over MQTT with TLS**, per device, using a
    per-device credential.
+
+The current source still contains the original I2S/MPU6050 implementation and
+needs a dedicated LSM6DS3 differential-sampling path before flashing. Until that
+driver and calibration are validated, the device must not publish G0/G1/G2 as
+a debond decision.
+
+### Hardware bring-up build
+
+For the currently connected hardware (one LSM6DS3, one VL53L0X, two TFTs and
+the joystick), `main/CMakeLists.txt` selects `hardware_bringup.c`. This test
+image does not run the old microphone measurement pipeline. It scans I2C,
+checks LSM6DS3-1 at `0x6A`, checks the VL53L0X at `0x29`, fills the two TFTs
+with blue/red test screens, and prints accelerometer and joystick values every
+500 ms.
+
+From an ESP-IDF 5.2+ shell:
+
+```text
+cd 05_firmware
+idf.py set-target esp32s3
+idf.py build
+idf.py -p <PORT> flash monitor
+```
+
+The VL53L0X is only probed in this first smoke test; ranging initialization is
+not yet included. The second LSM6DS3 at `0x6B` is also intentionally absent
+from this test image until it is wired.
+
+The bring-up image uses the ESP-IDF `vl53l1x` component under
+`components/vl53l1x` for the VL53L1X/V2 sensor. A successful I2C address scan
+alone is not sufficient: the sensor must complete the VL53L1X initialization
+and return a valid sample before the distance waveform is updated.
+
+### PC waveform reconstruction
+
+The firmware also emits a compact binary sample stream on the USB serial
+connection. Each frame contains a sequence number, dynamic X/Y/Z acceleration
+in micro-g, and the latest distance in mm. The Python viewer reconstructs the
+waveforms and reports the received rate and dropped frames:
+
+```text
+cd 05_firmware
+python -m pip install -r tools/requirements.txt
+python tools/plot_serial.py --port COM4 --baud 115200
+```
+
+The viewer scans for the binary sync marker, so ordinary boot log bytes do not
+prevent it from recovering alignment. Use the same serial port only in the
+viewer while it is running; close PlatformIO's serial monitor first.
+
+Recording and playback are also supported:
+
+```text
+python tools/plot_serial.py --port COM4 --record tap_01.tpw
+python tools/plot_serial.py --playback tap_01.tpw --speed 0.5
+```
+
+While the plot window is focused, press `+`/`-` to zoom the sample window,
+`Space` to pause/resume, and `R` to reset. Recordings use a compact binary
+format so high-rate samples can be saved without CSV overhead.
 
 ### What this instrument is not
 
@@ -39,7 +100,7 @@ not oversights.
 
 | Not claimed | Why |
 |---|---|
-| The **accelerometer does not detect debonding.** | An accelerometer at the probe tip measures the probe's own motion, not the wall's acoustic response. It is used **only** to check the *contact quality* of each measurement (was the probe pressed flat and firmly, or lifted/banged?). It is an operator-technique diagnostic. |
+| The **LSM6DS3 channel is not an acoustic microphone.** | It measures mechanical vibration through the probe structure. The tip sensor and body reference must be compared, and the result is sensitive to mounting, coupling, sensor bandwidth and striker mechanics. |
 | The grade is **not a validated defect classification.** | The G0/G1/G2 rule is a two-threshold box test, fitted — if at all — on two small hand-made reference panels. It is a *screening indicator*. It is not calibrated to any standard, it is not a probability of defect, and it must not be presented as a percentage of defect area. |
 | **Repeatability is limited.** | The probe grades *differences in ring-down*, not a physical quantity in SI units. Repeatability is limited by operator technique, strike energy, probe-to-wall angle, the substrate, ambient noise and temperature. Report it as "N measurements on panel P, of which M agreed with the reference" — never as an accuracy figure. |
 | **Simulated data is not measured data.** | With the `SIMULATION` build flag set, features are *synthesised* to exercise the MQTT and dashboard path. Every payload then carries `"sp":true` and the boot log shouts about it. Any figure produced in that mode must be labelled as software-path testing. |
@@ -58,7 +119,7 @@ not oversights.
    └─────────┘      │   └──────┬───────┘        │        ▲                     │   │
                     │          │                │        │ flyback diode       │   │
                     │   ┌──────▼────────────────▼────────┴────┐   ┌──────┐      │   │
-                    │   │  ESP32-WROOM-32 (ESP-IDF v5.x)      │   │IRLZ44N│     │   │
+                    │   │  ESP32-S3 (ESP-IDF v5.x)           │   │IRLZ44N│     │   │
                     │   │                                     ├──►│  N-MOS ├──┐  │   │
                     │   │  ┌─────────────────────────────┐    │ G │ gate  │  │  │   │
                     │   │  │ measurement task            │    │   │ R 220Ω│  │  │   │
@@ -136,26 +197,79 @@ and that file must be kept in step.
 
 | Signal | ESP32 GPIO | Direction | Notes |
 |---|---|---|---|
-| I2S `BCLK` (mic SCK) | GPIO 26 | out | Bit clock, 48 kHz × 64 = 3.072 MHz |
-| I2S `WS` (mic LRCLK) | GPIO 25 | out | Left channel selected; tie the mic's L/R pin as its datasheet requires |
-| I2S `DIN` (mic SD) | GPIO 33 | in | 24-bit data left-justified in a 32-bit slot |
-| I²C `SDA` (MPU6050) | GPIO 21 | bidir | 400 kHz; 4.7 kΩ pull-ups to 3.3 V (module usually has them) |
-| I²C `SCL` (MPU6050) | GPIO 22 | bidir | 400 kHz |
-| `MPU_INT` | GPIO 35 | in | **Reserved, currently unused** (input-only pin; polled design) |
-| Solenoid gate drive | GPIO 27 | out | → 220 Ω → IRLZ44N gate. 10 kΩ gate pulldown to GND |
-| Trigger button | GPIO 32 | in | Active low; internal pull-up enabled; other side to GND |
-| Status LED | GPIO 2 | out | On-board LED. Slow blink = idle; fast blink = minimum interval running |
+| GPIO 4/5/6 | unused | — | Reserved; no I2S microphone fitted |
+| I²C `SDA` (LSM6DS3 ×2 / VL53L0X) | GPIO 8 | bidir | Shared 100 kHz bus; 4.7 kΩ pull-ups to 3.3 V |
+| I²C `SCL` (LSM6DS3 ×2 / VL53L0X) | GPIO 9 | bidir | Shared 100 kHz bus |
+| LSM6DS3 `INT1` ×2 | GPIO 40/41 | in | Optional; currently unused |
+| VL53L0X `XSHUT` | GPIO 42 | out | Optional; hold high for normal single-sensor use |
+| TFT SPI `SCLK/MOSI/MISO` | GPIO 13/14/15 | out/out/in | Shared bus; MISO optional for write-only TFTs |
+| TFT1 `CS/DC/RST` | GPIO 16/17/18 | out | Independent control lines |
+| TFT2 `CS/DC/RST` | GPIO 21/47/6 | out | Independent control lines |
+| Joystick `VRx/VRy/SW` | GPIO 10/11/46 | ADC/ADC/in | 3.3 V supply; SW active low |
+| Solenoid gate drive | GPIO 7 | out | → 220 Ω → IRLZ44N gate. 10 kΩ gate pulldown to GND |
+| Trigger button | GPIO 12 | in | Active low; internal pull-up enabled; other side to GND |
+| Status LED | GPIO 39 | out | External LED + 330 Ω series resistor. Slow blink = idle |
 | UART0 TX / RX | GPIO 1 / 3 | — | Console + `idf.py monitor` |
 
-Power rails: **3.3 V** — ESP32, microphone, MPU6050. **12 V** — solenoid only.
+Power rails: **3.3 V** — ESP32, LSM6DS3 modules, VL53L0X,
+TFT logic and joystick. **12 V** — solenoid only.
 Common ground between the 3.3 V and 12 V domains, star-pointed at the MOSFET source.
-If the microphone module has a `VDD` of 3.3 V and a separate `GND`, keep its ground
-return on the analogue side, away from the solenoid's switching return.
+Keep sensor ground returns away from the solenoid's switching return where practical.
 
-> **Porting note.** This map assumes ESP32-WROOM-32 / ESP32-DevKitC. On ESP32-S3 or
-> ESP32-C3 several of these pins are not valid (GPIO 35/36/37/38 do not exist on C3;
-> GPIO 33 on S3 is often used by octal PSRAM). Change the `PROBE_PIN_*` macros and
-> nothing else — the firmware does not hard-code pin numbers anywhere else.
+> **ESP32-S3 note.** The table above is now the default map for an
+> ESP32-S3-DevKitC-1. It deliberately avoids GPIO19/20 (USB-JTAG) and the
+> flash/PSRAM pins. Do not assume it applies to every S3 carrier board: check
+> its schematic before connecting the LED. Change only the
+> `PROBE_PIN_*` macros when porting; the firmware does not hard-code pin numbers
+> elsewhere.
+
+### Added sensor and display wiring
+
+Wire the three I²C devices in parallel:
+
+```text
+GPIO8 SDA ── LSM6DS3-1 SDA ── LSM6DS3-2 SDA ── VL53L0X SDA
+GPIO9 SCL ── LSM6DS3-1 SCL ── LSM6DS3-2 SCL ── VL53L0X SCL
+3V3/GND  ── all module power pins
+```
+
+Mount LSM6DS3-1 mechanically near the wall-contact/tip structure and
+LSM6DS3-2 on the rigid probe body, away from the contact tip. Set
+LSM6DS3-1 `SA0/SDO` low for `0x6A` and LSM6DS3-2 `SA0/SDO` high for `0x6B`.
+Tie both LSM6DS3 `CS` pins high to select I²C mode. The
+VL53L0X remains at its default `0x29`; its `XSHUT` may be tied to 3V3
+instead of using GPIO42. An I²C scan should find `0x29`, `0x6A`, and `0x6B`.
+
+GPIO0 is deliberately not used for the joystick switch because it is a
+boot-strapping pin; holding the joystick during reset could otherwise change
+the boot mode. GPIO46 is input-only and may not provide a usable internal
+pull-up on every ESP32-S3 variant, so add an external 10 kΩ pull-up from SW
+to 3V3 if the button reads LOW when released. The two TFTs share SCLK, MOSI
+and (if present) MISO, but each needs its own CS, DC and RST. TFT2 RST is GPIO6;
+GPIO48 is reserved for the DevKitC-1 onboard RGB LED and must not be connected
+to TFT2 RST. Confirm that the
+display breakout accepts 3.3 V logic before
+connecting it. Do not connect a 5 V display signal to an ESP32-S3 GPIO.
+
+### Four-channel TFT waveform monitor
+
+The current PlatformIO bring-up firmware draws live scrolling traces after the
+initial colour test:
+
+- TFT1: three stacked acceleration traces for X, Y and Z, scaled to +/-2 g.
+- TFT2: one distance trace, scaled from 0 to 2000 mm.
+- Samples are refreshed about every 100 ms and retain 128 points per channel.
+
+The LSM6DS3 trace uses real register samples. The VL53L0X trace is populated
+only after a valid single-ranging result; an unavailable or timed-out result
+holds the previous value (initially zero) rather than inventing a distance.
+The current display code is a bring-up monitor, not yet the final menu/font UI.
+
+The two LSM6DS3 modules and VL53L0X are not drop-in replacements for the
+original MPU6050 register driver. The current application source still needs
+dedicated LSM6DS3 differential sampling, VL53L0X, ST7735 and joystick drivers;
+this pin map is a wiring baseline, not a claim that the new peripherals are
+already functional.
 
 ---
 
@@ -163,21 +277,22 @@ return on the analogue side, away from the solenoid's switching return.
 
 | # | Item | Suggested part / spec | Qty | Approx. cost | Notes |
 |---|---|---|---|---|---|
-| 1 | MCU module | ESP32-WROOM-32 dev board (or ESP32-DevKitC) | 1 | HK$40–70 | Any ESP32 with WiFi; 4 MB flash is plenty |
-| 2 | Microphone | **ICS-43434** or **INMP441** I²S MEMS breakout | 1 | HK$25–45 | **Primary sensor.** Both are 24-bit I²S; ICS-43434 has the better SNR |
-| 3 | Accelerometer | **MPU6050** breakout (GY-521) | 1 | HK$12–20 | **Auxiliary only** — contact-quality diagnostic |
-| 4 | Solenoid | 12 V, **23 W** push-pull solenoid (intermittent duty) | 1 | HK$40–80 | **Intermittent-duty part.** ~1.92 A at 12 V |
-| 5 | MOSFET | **IRLZ44N** logic-level N-channel MOSFET (TO-220) | 1 | HK$8 | Logic-level gate is essential; a plain IRF540 will not turn on fully from 3.3 V |
-| 6 | Flyback diode | 1N5819 (Schottky, 1 A) or 1N4007 | 1 | HK$2 | **Across the coil, cathode to +12 V.** Non-negotiable |
-| 7 | Gate resistor | 220 Ω, ¼ W | 1 | <HK$1 | Limits gate inrush / slows dV/dt |
-| 8 | Gate pulldown | 10 kΩ, ¼ W | 1 | <HK$1 | Holds the gate low while the ESP32 is booting/resetting |
-| 9 | Bulk capacitor | 1000 µF, 25 V electrolytic | 1 | HK$5 | Across the 12 V rail near the solenoid; absorbs the strike current step |
-| 10 | Decoupling | 100 nF ceramic | 2 | <HK$1 | At the MOSFET drain-source rail and the mic supply |
-| 11 | Trigger button | Tactile switch, 6 mm | 1 | HK$2 | NO, to GND |
-| 12 | 12 V supply | 12 V 2 A mains adaptor **or** 3S Li-ion pack | 1 | HK$80–150 | See safety section |
-| 13 | Probe body | 3D-printed or aluminium handheld body | 1 | — | The mic must be rigidly coupled to the tip; a loose mic ruins the measurement |
-| 14 | Reference panels | 2 × same finish, one good, one deliberately debonded | 2 | — | **Needed for calibration.** Build a panel with a known void behind the render |
-| 15 | Misc | Hookup wire, headers, perfboard | — | HK$20 | Keep the mic wiring short and screened |
+| 1 | MCU module | **ESP32-S3-DevKitC-1** (or S3 board with equivalent safe GPIOs) | 1 | HK$50–100 | Confirm the board's flash/PSRAM and LED pin before wiring |
+| 2 | Accelerometer | **LSM6DS3** breakout | 2 | — | Tip/reference vibration pair |
+| 3 | Distance sensor | **VL53L0X** breakout | 1 | — | UI/position context only |
+| 4 | Display | 128×160 SPI TFT, ST7735-class | 2 | — | Shared SPI bus, separate CS/DC/RST |
+| 5 | Joystick | Two-axis analog joystick module | 1 | — | 3.3 V only |
+| 6 | Solenoid | 12 V, **23 W** push-pull solenoid (intermittent duty) | 1 | HK$40–80 | **Intermittent-duty part.** ~1.92 A at 12 V |
+| 7 | MOSFET | **IRLZ44N** logic-level N-channel MOSFET (TO-220) | 1 | HK$8 | Logic-level gate is essential; a plain IRF540 will not turn on fully from 3.3 V |
+| 8 | Flyback diode | 1N5819 (Schottky, 1 A) or 1N4007 | 1 | HK$2 | **Across the coil, cathode to +12 V.** Non-negotiable |
+| 9 | Gate resistor | 220 Ω, ¼ W | 1 | <HK$1 | Limits gate inrush / slows dV/dt |
+| 10 | Gate pulldown | 10 kΩ, ¼ W | 1 | <HK$1 | Holds the gate low while the ESP32 is booting/resetting |
+| 11 | Bulk capacitor | 1000 µF, 25 V electrolytic | 1 | HK$5 | Across the 12 V rail near the solenoid; absorbs the strike current step |
+| 12 | Decoupling | 100 nF ceramic | 2 | <HK$1 | At the MOSFET drain-source rail and sensor supply |
+| 13 | Trigger button | Tactile switch, 6 mm | 1 | HK$2 | NO, to GND |
+| 14 | 12 V supply | 12 V 2 A mains adaptor **or** 3S Li-ion pack | 1 | HK$80–150 | See safety section |
+| 15 | Probe body | 3D-printed or aluminium handheld body | 1 | — | Keep the motion sensors rigidly coupled to the probe |
+| 16 | Misc | Hookup wire, headers, perfboard | — | HK$20 | Keep I²C/SPI wiring short |
 
 Total approximate cost: **HK$250–450**, excluding the reference panels and the supply.
 
@@ -192,11 +307,11 @@ Total approximate cost: **HK$250–450**, excluding the reference panels and the
      │ICS-43434 │    │ MPU6050  │      │ ESP32      │
      │   or     │    │ (GY-521) │      │            │
      │ INMP441  │    │          │      │            │
-     │ SCK ─────┼────┼──────────┼──────┤ GPIO26     │
-     │ WS  ─────┼────┼──────────┼──────┤ GPIO25     │
-     │ SD  ─────┼────┼──────────┼──────┤ GPIO33     │
-     │         ─┼──┐ │ SDA ─────┼───┬──┤ GPIO21     │
-     │         ─┼──┤ │ SCL ─────┼─┐ │  │ GPIO22     │
+     │ SCK ─────┼────┼──────────┼──────┤ GPIO4      │
+     │ WS  ─────┼────┼──────────┼──────┤ GPIO5      │
+     │ SD  ─────┼────┼──────────┼──────┤ GPIO6      │
+     │         ─┼──┐ │ SDA ─────┼───┬──┤ GPIO8      │
+     │         ─┼──┤ │ SCL ─────┼─┐ │  │ GPIO9      │
      │ L/R ─────┘  │ │          │ │ │  │            │
      │             │ │          │ │ └──┘            │
      └─────────────┘ └──────────┘ │                 │
@@ -214,7 +329,7 @@ Total approximate cost: **HK$250–450**, excluding the reference panels and the
                     │  cathode│                  │  12V/22W │
                     └────┬────┘                  └───┬──────┘
                          │  (flyback, across coil)   │
-   ESP32 GPIO27 ──[220Ω]─┤                           │
+   ESP32 GPIO7 ──[220Ω]─┤                           │
                          │                      ┌────┴─────┐
                       ┌──┴──┐                   │  DRAIN   │
                       │  G  │  IRLZ44N          │          │
@@ -275,7 +390,7 @@ idf.py --version           # must print "ESP-IDF v5.2" or later
 The firmware lives in this appendix's own folder:
 
 ```
-report/05_firmware/
+05_firmware/
 ├── CMakeLists.txt          project root
 ├── main/
 │   ├── CMakeLists.txt      component registration
@@ -289,7 +404,7 @@ report/05_firmware/
 threshold. Start every tuning session there, not in `app_main.c`.
 
 ```bash
-cd report/05_firmware        # run from inside an ESP-IDF terminal
+cd 05_firmware        # run from inside an ESP-IDF terminal
 idf.py set-target esp32
 idf.py menuconfig
 ```

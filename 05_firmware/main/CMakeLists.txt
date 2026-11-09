@@ -1,24 +1,17 @@
 # CMakeLists.txt -- main component of the tap-test probe firmware
 #
-# ESP-IDF v5.x.  This registers the source file, the include directory and the
-# component dependencies.  `idf.py` picks this up automatically; the top-level
-# CMakeLists.txt in the project root only needs the project() declaration.
+# ESP-IDF v5.x. This currently builds the hardware bring-up smoke test.
+# app_main.c remains in the tree as the legacy measurement implementation and
+# is not compiled by this target.
 
 idf_component_register(
     SRCS
-        "app_main.c"
+        "hardware_bringup.c"
     INCLUDE_DIRS
         "."
     REQUIRES
-        driver          # i2s_std.h, i2c_master.h, gpio.h
-        esp_wifi
-        esp_event
-        esp_netif
-        nvs_flash
-        esp_timer
-        mqtt            # mqtt_client.h
-        esp-tls         # provides esp_crt_bundle.h
-        mbedtls
+        driver          # i2c_master.h, gpio.h, spi_master.h, adc_oneshot.h
+        vl53l1x
 )
 
 # The DSP stage uses <math.h> (cosf/sinf/sqrtf/log/lroundf) and <time.h>

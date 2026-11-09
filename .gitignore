@@ -12,18 +12,19 @@ _tmp_etsi/
 # Pre-fix snapshots of the analysis output. These are the products of the
 # earlier version of 06_analyze_tap.py, which did not run to completion and
 # whose one-feature rule was inverted. Kept locally, not published.
-report/results_backup_pre_A/
+results_backup_pre_A/
 
 # Python bytecode
 __pycache__/
 *.py[cod]
 
 # ---- ESP-IDF build products -------------------------------------------
-report/05_firmware/build/
-report/05_firmware/sdkconfig
-report/05_firmware/sdkconfig.old
-report/05_firmware/managed_components/
-report/05_firmware/dependencies.lock
+05_firmware/.pio/
+05_firmware/build/
+05_firmware/sdkconfig
+05_firmware/sdkconfig.old
+05_firmware/managed_components/
+05_firmware/dependencies.lock
 
 # ---- editors and OS ----------------------------------------------------
 .vscode/
@@ -38,4 +39,4 @@ desktop.ini
 # Appendix B.1.4. The verbatim HTML captures of WorldSkills' pages are not
 # redistributed — they are publicly retrievable from the URLs in the
 # appendix, and the same reasoning as for the ETSI documents applies.
-report/_sources/wsos/*.html
+_sources/wsos/*.html

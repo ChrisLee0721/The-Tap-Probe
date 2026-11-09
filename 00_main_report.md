@@ -67,7 +67,7 @@ states exactly what may and may not be claimed from them.
 # Table of Contents
 
 > Numbering is manual; if you paste this into Word, apply Heading 1/2 styles to the `#`/`##` lines
-> and the table of contents field will regenerate. Figures live in `report/06_analyze_tap.py`'s output
+> and the table of contents field will regenerate. Figures live in `06_analyze_tap.py`'s output
 > (`results/figures/`); the placeholder list is in Appendix E.
 
 1. Introduction
@@ -581,4 +581,3 @@ claims.
 | D5 | "Deployed on facades" implied | Handheld survey tool in Milestone 1; gateway added in Milestone 2 | Honest scope (Appendix B.2) | Ch. 7.1, Ch. 9.5 |
 | D6 | Security as a keyword list | TLS 1.3 with CA-chain validation, per-device credentials, ACL; benchmarked against ETSI EN 303 645 | MILO *b*; Ch. 2.5 | Ch. 7.4, Appendix B.4 |
 | D7 | One ESP32 claimed as a "gateway" | Sensor node in M1; separate concentrator/gateway role in M2 | A node is not a gateway (MILO *b*) | Ch. 3.4, Ch. 7.1 |
-

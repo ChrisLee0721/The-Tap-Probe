@@ -67,7 +67,7 @@ states exactly what may and may not be claimed from them.
 # Table of Contents
 
 > Numbering is manual; if you paste this into Word, apply Heading 1/2 styles to the `#`/`##` lines
-> and the table of contents field will regenerate. Figures live in `report/06_analyze_tap.py`'s output
+> and the table of contents field will regenerate. Figures live in `06_analyze_tap.py`'s output
 > (`results/figures/`); the placeholder list is in Appendix E.
 
 1. Introduction

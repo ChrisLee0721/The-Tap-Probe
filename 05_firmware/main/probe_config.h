@@ -11,18 +11,16 @@
  *
  * Physical summary of the instrument:
  *   - A 12 V intermittent-duty solenoid gives the wall a single mechanical tap.
- *   - An I2S MEMS microphone (ICS-43434 / INMP441) is the PRIMARY sensor.  It
- *     records the tap tone; the deliberate "ring" of a debonded (hollow) finish
- *     is longer and lower in frequency than the short "click" of a well-bonded
- *     one.
- *   - An MPU6050 accelerometer is an AUXILIARY channel only.  It measures how
- *     well the probe was held against the wall (contact/mount compliance), i.e.
- *     it is a QUALITY-CONTROL channel for the operator's technique.
- *     *** The accelerometer does NOT detect debonding.  It cannot. ***
+ *   - Two LSM6DS3 modules replace the microphone as the vibration sensing
+ *     channel.  LSM6DS3-1 is mounted near the wall/contact tip and LSM6DS3-2
+ *     is mounted on the probe body as a reference for striker/base motion.
+ *     They are on the shared I2C bus at 0x6A and 0x6B.
+ *   - A VL53L0X time-of-flight sensor is reserved for the shared I2C bus at
+ *     0x29.  Its distance channel is for UI/position context, not debonding.
  *
- * Pin map targets an ESP32-WROOM-32 / ESP32-DevKitC.  On ESP32-S3, ESP32-C3
- * etc. only GPIO21/22 (I2C) and the input-only pins differ -- adjust and re-run
- * `idf.py menuconfig` -> nothing breaks at compile time, but the wiring does.
+ * Pin map targets an ESP32-S3-DevKitC-1 with the default flash/PSRAM pins and
+ * USB-JTAG pins left alone.  Other ESP32-S3 boards may expose a different set
+ * of safe GPIOs; verify the board schematic before wiring.
  */
 
 #ifndef PROBE_CONFIG_H
@@ -136,26 +134,51 @@
  *    Keep this table identical to the README pinout table.
  * ========================================================================= */
 
-/* --- I2S MEMS microphone (PRIMARY SENSOR) --- */
-#define PROBE_PIN_I2S_BCLK    GPIO_NUM_26   /* SCK  : bit clock  (out)       */
-#define PROBE_PIN_I2S_WS      GPIO_NUM_25   /* WS   : word select (out)      */
-#define PROBE_PIN_I2S_DIN     GPIO_NUM_33   /* SD   : mic data   (in)        */
+/*
+ * GPIO4/5/6 are intentionally left unassigned; no I2S microphone is fitted.
+ */
+#define PROBE_PIN_I2S_BCLK    GPIO_NUM_4
+#define PROBE_PIN_I2S_WS      GPIO_NUM_5
+#define PROBE_PIN_I2S_DIN     GPIO_NUM_6
 
-/* --- MPU6050 accelerometer (AUXILIARY, contact-quality channel only) --- */
-#define PROBE_PIN_I2C_SDA     GPIO_NUM_21
-#define PROBE_PIN_I2C_SCL     GPIO_NUM_22
-#define PROBE_PIN_MPU_INT     GPIO_NUM_35   /* input-only, RESERVED/unused    */
+/* --- LSM6DS3 vibration sensors (primary + reference) --- */
+#define PROBE_PIN_I2C_SDA     GPIO_NUM_8
+#define PROBE_PIN_I2C_SCL     GPIO_NUM_9
+#define PROBE_PIN_IMU1_INT     GPIO_NUM_40  /* optional, currently unused      */
+#define PROBE_PIN_IMU2_INT     GPIO_NUM_41  /* optional, currently unused      */
+#define PROBE_PIN_TOF_XSHUT    GPIO_NUM_42  /* optional, hold high if unused   */
 #define PROBE_I2C_PORT        0
 #define PROBE_I2C_FREQ_HZ     400000
-#define PROBE_MPU6050_ADDR    0x68          /* AD0 tied low                   */
+#define PROBE_LSM6DS3_ADDR_1  0x6A          /* SA0/SDO tied low               */
+#define PROBE_LSM6DS3_ADDR_2  0x6B          /* SA0/SDO tied high              */
+#define PROBE_VL53L0X_ADDR    0x29
+/* Kept only so the legacy MPU6050 source still compiles during migration. */
+#define PROBE_MPU6050_ADDR    0x68
+
+/* --- SPI TFT displays (ST7735-class 128x160 modules) --- */
+#define PROBE_PIN_TFT_SCLK    GPIO_NUM_13
+#define PROBE_PIN_TFT_MOSI    GPIO_NUM_14
+#define PROBE_PIN_TFT_MISO    GPIO_NUM_15   /* optional on write-only modules */
+#define PROBE_PIN_TFT1_CS     GPIO_NUM_16
+#define PROBE_PIN_TFT1_DC     GPIO_NUM_17
+#define PROBE_PIN_TFT1_RST    GPIO_NUM_18
+#define PROBE_PIN_TFT2_CS     GPIO_NUM_21
+#define PROBE_PIN_TFT2_DC     GPIO_NUM_47
+#define PROBE_PIN_TFT2_RST    GPIO_NUM_6
+
+/* --- Two-axis joystick module --- */
+#define PROBE_PIN_JOYSTICK_X  GPIO_NUM_10   /* ADC input, 0..3.3 V            */
+#define PROBE_PIN_JOYSTICK_Y  GPIO_NUM_11   /* ADC input, 0..3.3 V            */
+#define PROBE_PIN_JOYSTICK_SW GPIO_NUM_46   /* input-only; active low          */
 
 /* --- Solenoid drive (logic-level N-MOSFET low-side switch) --- */
-#define PROBE_PIN_SOLENOID    GPIO_NUM_27   /* -> 220 ohm -> IRLZ44N gate     */
+#define PROBE_PIN_SOLENOID    GPIO_NUM_7    /* -> 220 ohm -> IRLZ44N gate     */
 #define PROBE_SOLENOID_ACTIVE_LEVEL  1
 
 /* --- Operator interface --- */
-#define PROBE_PIN_TRIGGER     GPIO_NUM_32   /* momentary button to GND        */
-#define PROBE_PIN_STATUS_LED  GPIO_NUM_2    /* on-board LED, heartbeat/link   */
+#define PROBE_PIN_TRIGGER     GPIO_NUM_12   /* momentary button to GND        */
+#define PROBE_PIN_STATUS_LED  GPIO_NUM_39   /* external LED + series resistor */
+#define PROBE_PIN_ONBOARD_RGB GPIO_NUM_48   /* DevKitC-1 WS2812 data */
 
 /* =========================================================================
  * 4. MICROPHONE / CAPTURE TIMING
