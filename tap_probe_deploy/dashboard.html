@@ -1,0 +1,1866 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tap Probe — 实时分析仪表盘</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin:0; font:14px/1.5 "Segoe UI",system-ui,sans-serif; background:#0d1117; color:#e6edf3; }
+  header { padding:14px 20px; background:#161b22; border-bottom:1px solid #30363d; display:flex; gap:18px; align-items:center; flex-wrap:wrap; }
+  h1 { font-size:16px; margin:0; font-weight:600; }
+  .pill { padding:2px 10px; border-radius:999px; font-size:12px; border:1px solid #30363d; }
+  .ok { background:#12331f; border-color:#2ea043; color:#7ee787; }
+  .bad { background:#3d1a1a; border-color:#f85149; color:#ff7b72; }
+  .warn { background:#3a2d12; border-color:#d29922; color:#e3b341; }
+  main { padding:20px; display:grid; gap:18px; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); }
+  .card { background:#161b22; border:1px solid #30363d; border-radius:10px; padding:16px; }
+  .card.wide { grid-column:1 / -1; }
+  .card h2 { font-size:13px; margin:0 0 12px; color:#8b949e; text-transform:uppercase; letter-spacing:.06em; }
+  .big { font-size:30px; font-weight:600; font-variant-numeric:tabular-nums; }
+  .row { display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px solid #21262d; font-variant-numeric:tabular-nums; }
+  .row:last-child { border-bottom:0; }
+  .k { color:#8b949e; }
+  canvas { width:100%; height:150px; display:block; }
+  pre { margin:0; font-size:11px; color:#8b949e; overflow:auto; max-height:150px; }
+  table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
+  th { text-align:right; font-weight:500; color:#8b949e; font-size:12px; padding:4px 6px; border-bottom:1px solid #30363d; }
+  th:first-child, td:first-child { text-align:left; }
+  td { text-align:right; padding:4px 6px; border-bottom:1px solid #21262d; font-size:13px; }
+  tr:last-child td { border-bottom:0; }
+  .verdict { font-size:44px; font-weight:700; letter-spacing:.02em; line-height:1.1; }
+  .v-bonded { color:#3fb950; }
+  .v-debond { color:#f85149; }
+  .v-unknown { color:#8b949e; }
+  .sub { color:#8b949e; font-size:12px; margin-top:6px; }
+  .hint { color:#8b949e; font-size:12px; }
+  .hint.hidden { display:none; }
+  .note { color:#d29922; font-size:12px; margin-top:8px; background:rgba(210,153,34,.08);
+          border:1px solid rgba(210,153,34,.35); border-radius:6px; padding:6px 10px; }
+  input[type=range] { width:100%; accent-color:#2ea043; }
+  .slider-row { display:flex; gap:12px; align-items:center; }
+  .slider-row output { min-width:52px; text-align:right; font-variant-numeric:tabular-nums; }
+  .timeline { max-height:220px; overflow-y:auto; }
+  .tl-row { display:grid; grid-template-columns:52px 1fr 72px 56px; gap:6px; padding:4px 0; border-bottom:1px solid #21262d; font-variant-numeric:tabular-nums; font-size:12px; }
+  .tl-row span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .tl-row:last-child { border-bottom:0; }
+  .tag { padding:0 8px; border-radius:999px; font-size:11px; text-align:center; border:1px solid transparent; }
+  .tag.b { background:#12331f; border-color:#2ea043; color:#7ee787; }
+  .tag.d { background:#3d1a1a; border-color:#f85149; color:#ff7b72; }
+  .tag.u { background:#21262d; border-color:#30363d; color:#8b949e; }
+  button { background:#21262d; color:#e6edf3; border:1px solid #30363d; border-radius:6px; padding:5px 10px; font-size:12px; cursor:pointer; }
+  button:hover { border-color:#8b949e; }
+  button.primary { border-color:#2ea043; color:#7ee787; }
+  .btn-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+  /* ---- 高精度原始波形（MQTT probe/+/waveform） ---- */
+  #rawwave-canvas { width:100%; height:400px; display:block; }
+  .rawwave-controls { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:0 0 10px; }
+  .rawwave-controls label { display:flex; align-items:center; gap:4px; color:#8b949e;
+                            font-size:12px; }
+  .rawwave-axes { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+  .rawwave-axes button.active { border-color:#58a6ff; color:#79c0ff; background:#12212e; }
+  .rawwave-mode { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .rawwave-controls select { background:#0d1117; color:#e6edf3; border:1px solid #30363d;
+                             border-radius:5px; padding:2px 6px; font-size:12px; }
+  .rawwave-controls input[type=radio], .rawwave-controls input[type=checkbox] {
+    accent-color:#58a6ff; margin:0; }
+  /* ---- 实时瀑布图（MQTT probe/+/stream） ---- */
+  #waterfall-canvas { width:100%; height:400px; display:block; }
+  .waterfall-controls { display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+                        margin:0 0 10px; }
+  .waterfall-controls label { color:#8b949e; font-size:12px; }
+  .waterfall-controls select { background:#0d1117; color:#e6edf3; border:1px solid #30363d;
+                               border-radius:5px; padding:2px 6px; font-size:12px; }
+  .wf-colorbar { display:inline-block; width:96px; height:10px; border-radius:3px;
+                 border:1px solid #30363d;
+                 background:linear-gradient(90deg,#0d1117,#1f6feb,#f9a825,#f85149); }
+  /* ---- 版式：第 2 行 = 六张实时卡 + 网格测量 ---- */
+  .mid-row { grid-column: 1 / -1; width:100%; display:grid;
+             grid-template-columns: minmax(0,1fr) 380px; gap:18px; align-items:stretch; }
+  .six-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(280px,1fr));
+              gap:18px; }
+  @media (max-width: 1150px) {
+    .mid-row { grid-template-columns: 1fr; }
+  }
+  /* ---- 相对分级（双面差分测量） ---- */
+  .grade-toolbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:0 0 8px; }
+  .grade-toolbar select, .grade-toolbar input[type=number] {
+    background:#0d1117; color:#e6edf3; border:1px solid #30363d; border-radius:5px;
+    padding:3px 6px; font-size:12px; }
+  .grade-toolbar input[type=number] { width:64px; }
+  .grade-line { color:#8b949e; font-size:12px; margin:0 0 10px; }
+  .grade-conclusion { font-size:13px; margin:10px 0 8px; font-variant-numeric:tabular-nums; }
+  .grade-unavailable { color:#d29922; font-size:12px; background:rgba(210,153,34,.08);
+                       border:1px solid rgba(210,153,34,.35); border-radius:6px; padding:6px 10px; }
+  #grade-body.hidden, .grade-unavailable.hidden { display:none; }
+  .chip { display:inline-block; padding:1px 8px; border-radius:999px; font-size:11px;
+          line-height:1.6; border:1px solid transparent; font-variant-numeric:tabular-nums; }
+  .chip.g0 { background:#2e7d32; border-color:#2ea043; color:#e6edf3; }
+  .chip.g1 { background:#f9a825; border-color:#d29922; color:#0d1117; }
+  .chip.g2 { background:#c62828; border-color:#f85149; color:#e6edf3; }
+  .chip.nodata { background:#57606a; border-color:#8b949e; color:#e6edf3; }
+  .ref-tag { margin-left:6px; padding:0 6px; border-radius:999px; font-size:10px;
+             border:1px solid #58a6ff; color:#79c0ff; white-space:nowrap; }
+  tr.refrow td { background:#12212e; }
+  .rhobar { position:relative; display:inline-block; width:96px; height:14px; vertical-align:middle; }
+  .rhobar::before { content:""; position:absolute; left:0; right:0; top:6px; height:1px;
+                    background:#30363d; }
+  .rhobar-ci { position:absolute; top:5px; height:5px; background:#58a6ff; border-radius:2px; }
+  .rhobar-dot { position:absolute; top:2px; width:2px; height:10px; background:#e6edf3; }
+  .num { font-variant-numeric:tabular-nums; }
+  /* ---- 网格测量：网页为位置权威，设备只收到扁平点号 ---- */
+  .grid-toolbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:0 0 12px; }
+  .grid-toolbar select { background:#0d1117; color:#e6edf3; border:1px solid #30363d;
+                         border-radius:5px; padding:3px 6px; font-size:12px; }
+  .grid-board { display:grid; grid-template-columns:repeat(1,minmax(0,1fr)); gap:7px;
+                max-width:420px; }
+  .grid-cell { display:flex; flex-direction:column; align-items:flex-start; gap:2px;
+               min-height:58px; padding:5px 6px; border:2px solid #30363d; border-radius:8px;
+               background:#2a2f3a; color:#e6edf3; text-align:left; font-size:11px;
+               line-height:1.25; cursor:pointer; overflow:hidden; }
+  .grid-cell:hover { border-color:#8b949e; }
+  .grid-cell.g-normal { background:#2e7d32; border-color:#2ea043; }
+  .grid-cell.g-suspect { background:#f9a825; border-color:#d29922; color:#0d1117; }
+  .grid-cell.g-hollow { background:#c62828; border-color:#f85149; }
+  .grid-cell.current { border-color:#58a6ff; box-shadow:0 0 0 1px #58a6ff; }
+  .grid-cell .idx { font-size:12px; font-weight:600; font-variant-numeric:tabular-nums; }
+  .grid-cell .taps { font-size:11px; font-variant-numeric:tabular-nums; opacity:.92; }
+  .grid-cell .ratio { font-size:11px; opacity:.82; font-variant-numeric:tabular-nums; }
+  .grid-legend { display:flex; gap:14px; align-items:center; flex-wrap:wrap; margin-top:12px;
+                 font-size:12px; color:#8b949e; }
+  .grid-swatch { display:inline-block; width:10px; height:10px; border-radius:3px;
+                 margin-right:5px; vertical-align:middle; border:1px solid #30363d; }
+  .sw-empty { background:#2a2f3a; }
+  .sw-normal { background:#2e7d32; }
+  .sw-suspect { background:#f9a825; }
+  .sw-hollow { background:#c62828; }
+  .grid-counter { margin-top:8px; font-size:13px; font-variant-numeric:tabular-nums; }
+  .grid-unavailable { color:#d29922; font-size:12px; margin-top:8px;
+                      background:rgba(210,153,34,.08); border:1px solid rgba(210,153,34,.35);
+                      border-radius:6px; padding:6px 10px; }
+  #grid-wrap.hidden, .grid-unavailable.hidden { display:none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Tap Probe — 实时敲击分析</h1>
+  <span class="pill" id="conn">原始流：未连接</span>
+  <span class="pill" id="api">分析服务：未连接</span>
+  <span class="pill" id="dev">设备：—</span>
+  <span class="pill" id="count">0 次敲击</span>
+</header>
+
+<main>
+  <!-- 第 1 行：相对分级（全宽） -->
+  <section class="card wide" id="grading-card">
+    <h2>相对分级（双面差分测量）</h2>
+    <div class="grade-toolbar">
+      <label class="hint" for="grade-mode">分级方式</label>
+      <select id="grade-mode">
+        <option value="group">自动分组（group）</option>
+        <option value="rank">秩分级（rank）</option>
+        <option value="threshold">固定阈值（threshold）</option>
+      </select>
+      <label class="hint" for="grade-t1">T1</label>
+      <input id="grade-t1" type="number" min="0.30" max="1.20" step="0.01" value="0.80">
+      <label class="hint" for="grade-t2">T2</label>
+      <input id="grade-t2" type="number" min="0.05" step="0.01" value="0.50">
+      <button id="btn-apply-grade" class="primary">应用</button>
+      <span class="hint" id="grade-msg"></span>
+      <span style="flex:1"></span>
+      <button id="btn-auto-ref">自动选基准</button>
+      <button id="btn-clear-ref">清空基准</button>
+    </div>
+    <div class="grade-line" id="grade-ref">当前基准：—</div>
+    <div class="grade-unavailable hidden" id="grade-unavailable">相对分级 API 未就绪</div>
+    <div id="grade-body">
+      <div class="grade-conclusion" id="grade-conclusion">等待测点数据…</div>
+      <table id="points-table">
+        <thead>
+          <tr><th>测点</th><th>敲击数</th><th>band_ratio</th><th>rho</th>
+              <th>分级</th><th>置信度</th><th>操作</th></tr>
+        </thead>
+        <tbody id="points-body"><tr><td colspan="7" class="hint">等待测点数据…</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 第 2 行：左六张实时卡 ／ 右网格测量 -->
+  <div class="mid-row">
+    <div class="six-grid">
+    <!-- 单次敲击：绝对判定，仅参考 -->
+    <section class="card">
+      <h2>单次敲击（绝对判定，仅参考）</h2>
+      <div class="verdict v-unknown" id="verdict">等待数据…</div>
+      <div class="sub" id="verdict-sub">band_ratio = — ／ 阈值 —</div>
+      <div class="slider-row" style="margin-top:14px">
+        <label class="k" for="th">阈值 TH_BAND_RATIO</label>
+        <input id="th" type="range" min="0" max="2" step="0.01" value="0.45">
+        <output id="th-val">0.45</output>
+      </div>
+      <div class="sub" id="th-msg">拖动即写入后端 POST /api/config。</div>
+      <div class="btn-row">
+        <button id="btn-zero">重新零位</button>
+        <button id="btn-bonded" class="primary">仿真：BONDED</button>
+        <button id="btn-debond">仿真：DEBOND</button>
+      </div>
+      <div class="sub" id="cmd-msg">没有硬件时可切换模拟数据源档位（POST /api/cmd）。</div>
+      <div class="sub">上面是单次敲击相对绝对阈值的判定（band_ratio_lh ≤ 0.45 → DEBOND），只作参考；
+        它和「网格测量」不是同一个判据：网格按格点累计中位数，不设参考点。</div>
+    </section>
+
+    <!-- 特征表 -->
+    <section class="card">
+      <h2>最近一次敲击特征</h2>
+      <table>
+        <thead><tr><th>特征</th><th>数值</th></tr></thead>
+        <tbody id="feat-table"><tr><td colspan="2" class="hint">等待数据…</td></tr></tbody>
+      </table>
+      <div class="sub" id="feat-src">特征来源：—</div>
+    </section>
+
+    <!-- 重复性 -->
+    <section class="card">
+      <h2>重复性 CV%（窗口内）</h2>
+      <table>
+        <thead><tr><th>特征</th><th>全部</th><th>BONDED</th><th>DEBOND</th></tr></thead>
+        <tbody id="cv-table"><tr><td colspan="4" class="hint">等待数据…</td></tr></tbody>
+      </table>
+      <div class="sub" id="cv-note">CV 为总体标准差／均值，与 06_analyze_tap.py 的 cv_percent 语义一致。</div>
+    </section>
+
+    <!-- 原始流模值曲线 -->
+    <section class="card">
+      <h2>加速度模值（原始流 8080）</h2>
+      <div class="big" id="mag">—</div>
+      <div class="hint" id="mag-hint">等待 probe/measurement 原始流帧（设备每 2 s 发一帧）…</div>
+      <canvas id="plot" width="600" height="150"></canvas>
+    </section>
+
+    <!-- 波形摘要 -->
+    <section class="card">
+      <h2>最近一次敲击波形摘要</h2>
+      <canvas id="waveplot" width="600" height="150"></canvas>
+      <div class="sub" id="wave-info">等待数据…</div>
+    </section>
+
+    <!-- 最近敲击时间线 -->
+    <section class="card">
+      <h2>最近敲击时间线</h2>
+      <div class="timeline" id="timeline"><div class="hint">等待数据…</div></div>
+    </section>
+    </div>
+
+    <!-- 网格测量：网页端负责位置，设备只收到扁平点号 -->
+    <section class="card" id="grid-card">
+      <h2>网格测量</h2>
+      <div class="grid-toolbar">
+        <label class="hint" for="grid-rows">行</label>
+        <select id="grid-rows"></select>
+        <label class="hint" for="grid-cols">列</label>
+        <select id="grid-cols"></select>
+        <button id="btn-apply-grid" class="primary">应用网格</button>
+        <span class="hint" id="grid-msg"></span>
+        <span class="hint" id="grid-current">当前测点：—</span>
+      </div>
+      <div class="grid-unavailable hidden" id="grid-unavailable">网格 API 未就绪</div>
+      <div id="grid-wrap">
+        <div class="grid-board" id="grid-board"></div>
+        <div class="grid-legend">
+          <span><span class="grid-swatch sw-empty"></span>无数据</span>
+          <span><span class="grid-swatch sw-normal"></span>正常</span>
+          <span><span class="grid-swatch sw-suspect"></span>可疑</span>
+          <span><span class="grid-swatch sw-hollow"></span>空鼓</span>
+          <span>点格中点号即扁平索引 idx = 行×列数 + 列</span>
+        </div>
+        <div class="grid-counter" id="grid-counter">已完成 0/0 点</div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- 实时瀑布图：probe/+/stream（约 20 ms 一帧，512 点 FFT） -->
+  <section class="card wide" id="waterfall-card">
+    <h2>实时瀑布图（6.66 kHz 连续流）</h2>
+    <div class="waterfall-controls">
+      <button type="button" id="waterfall-toggle">开始实时流</button>
+      <label class="hint" for="waterfall-axis">分量</label>
+      <select id="waterfall-axis">
+        <option value="mag" selected>|a|</option>
+        <option value="x">X</option>
+        <option value="y">Y</option>
+        <option value="z">Z</option>
+      </select>
+      <span class="wf-colorbar" title="幅度 dB：暗 → 亮"></span>
+      <span class="hint">幅度 dB（暗 → 亮）；频率 0 在下 / 3000 Hz 在上，时间向右滚动</span>
+    </div>
+    <canvas id="waterfall-canvas" width="1200" height="400"></canvas>
+    <div class="sub" id="waterfall-info">实时流未开启</div>
+  </section>
+
+  <!-- 高精度原始波形：直连 8080 的 probe/+/waveform（base64 小端 int16） -->
+  <section class="card wide" id="rawwave-card">
+    <h2>高精度原始波形（1024 点，未压缩包络）</h2>
+    <div class="rawwave-controls">
+      <div class="rawwave-axes" id="rawwave-axes">
+        <button type="button" class="active" data-axis="mag">|a|</button>
+        <button type="button" data-axis="x">X</button>
+        <button type="button" data-axis="y">Y</button>
+        <button type="button" data-axis="z">Z</button>
+      </div>
+      <span class="hint">显示模式</span>
+      <span class="rawwave-mode" id="rawwave-mode">
+        <label><input type="radio" name="rawwave-mode" value="raw" checked>原始曲线</label>
+        <label><input type="radio" name="rawwave-mode" value="minmax">Min-Max 包络</label>
+        <label><input type="radio" name="rawwave-mode" value="rms">滑动 RMS</label>
+      </span>
+      <label class="hint" for="rawwave-win">聚合窗口</label>
+      <select id="rawwave-win">
+        <option value="16">16</option>
+        <option value="32" selected>32</option>
+        <option value="64">64</option>
+        <option value="128">128</option>
+        <option value="256">256</option>
+      </select>
+      <label class="hint"><input type="checkbox" id="rawwave-overlay"> 叠加峰值保持</label>
+    </div>
+    <canvas id="rawwave-canvas" width="1200" height="400"></canvas>
+    <div class="sub" id="rawwave-info">等待 probe/+/waveform 帧…</div>
+  </section>
+
+  <!-- 原始 JSON（MQTT 测量帧，全宽，置于最底部） -->
+  <section class="card wide">
+    <h2>原始 JSON（MQTT 测量帧）</h2>
+    <pre id="raw">等待数据…</pre>
+  </section>
+</main>
+
+<script src="mqtt.min.js"></script>
+<script>
+// ---------------------------------------------------------------------------
+// 地址推导：页面由 http.server 提供时跟随当前主机名，直接用磁盘打开时回落到
+// 本机局域网地址，这样手机等局域网设备访问同一份文件也能连上。
+// ---------------------------------------------------------------------------
+var FALLBACK_HOST = "192.168.3.12";
+var HOST = (location.protocol === "http:" || location.protocol === "https:")
+  ? location.hostname : FALLBACK_HOST;
+var API_BASE = "http://" + HOST + ":8082";
+var WS_URL = "ws://" + HOST + ":8082/api/stream";
+var MQTT_WS_URL = "ws://" + HOST + ":8080/mqtt";
+
+var FEATURES = [
+  ["f_peak_hz", "f_peak（Hz）", 1],
+  ["f_centroid_hz", "f_centroid（Hz）", 1],
+  ["band_ratio_lh", "band_ratio", 3],
+  ["decay_tau_ms", "decay_tau（ms）", 1],
+  ["crest_factor", "crest", 2],
+  ["kurtosis", "kurtosis", 2],
+  ["peak_au", "peak（g）", 3],
+  ["rms_au", "rms（g）", 4]
+];
+var CV_FEATURES = ["band_ratio_lh", "f_peak_hz", "f_centroid_hz", "decay_tau_ms",
+                   "peak_au", "rms_au", "crest_factor", "kurtosis"];
+
+function el(id) { return document.getElementById(id); }
+function fmt(v, digits) {
+  if (v === null || v === undefined) { return "—"; }
+  var n = Number(v);
+  if (!isFinite(n)) { return "—"; }
+  return n.toFixed(digits === undefined ? 3 : digits);
+}
+function pill(id, text, cls) {
+  var node = el(id);
+  node.textContent = text;
+  node.className = "pill " + (cls || "");
+}
+function pad2(n) { return (n < 10 ? "0" : "") + n; }
+function clock(ms) {
+  if (!ms) { return "—"; }
+  var d = new Date(ms);
+  return pad2(d.getHours()) + ":" + pad2(d.getMinutes()) + ":" + pad2(d.getSeconds());
+}
+
+// ---------------------------------------------------------------------------
+// 状态
+// ---------------------------------------------------------------------------
+var state = { config: { th_band_ratio: 0.45, band_lo_hz: 30, window: 200 },
+              stats: null, latest: null, taps: [], magHist: [], ws: null,
+              wsRetry: 0, tapCount: 0 };
+
+// ---------------------------------------------------------------------------
+// 渲染
+// ---------------------------------------------------------------------------
+function verdictClass(v) {
+  if (v === "BONDED") { return "v-bonded"; }
+  if (v === "DEBOND") { return "v-debond"; }
+  return "v-unknown";
+}
+function tagClass(v) {
+  if (v === "BONDED") { return "tag b"; }
+  if (v === "DEBOND") { return "tag d"; }
+  return "tag u";
+}
+
+function renderVerdict(tap) {
+  var node = el("verdict");
+  var verdict = tap && tap.verdict ? tap.verdict : "—";
+  node.textContent = verdict;
+  node.className = "verdict " + verdictClass(verdict);
+  var ratio = tap && tap.features ? tap.features.band_ratio_lh : null;
+  var th = tap && tap.th_band_ratio !== undefined ? tap.th_band_ratio
+                                                 : state.config.th_band_ratio;
+  var rule = verdict === "DEBOND" ? "≤" : "＞";
+  el("verdict-sub").textContent = "band_ratio = " + fmt(ratio, 3)
+    + " ／ 阈值 " + fmt(th, 2) + "（" + fmt(ratio, 3) + " " + rule + " "
+    + fmt(th, 2) + " → " + verdict + "）";
+  if (tap) { state.tapCount = Math.max(state.tapCount, Number(tap.tap) || 0); }
+  el("count").textContent = (state.tapCount || 0) + " 次敲击";
+}
+
+function renderFeatures(tap) {
+  var body = el("feat-table");
+  if (!tap || !tap.features) {
+    body.innerHTML = '<tr><td colspan="2" class="hint">等待数据…</td></tr>';
+    return;
+  }
+  var html = "";
+  for (var i = 0; i < FEATURES.length; i++) {
+    var key = FEATURES[i][0];
+    html += '<tr><td class="k">' + FEATURES[i][1] + "</td><td>"
+      + fmt(tap.features[key], FEATURES[i][2]) + "</td></tr>";
+  }
+  html += '<tr><td class="k">fs（Hz）</td><td>' + fmt(tap.fs, 0) + "</td></tr>";
+  html += '<tr><td class="k">设备 ／ 敲击序号</td><td>' + (tap.dev || "—")
+    + " ／ " + (tap.tap === undefined ? "—" : tap.tap) + "</td></tr>";
+  body.innerHTML = html;
+  el("feat-src").textContent = "特征来源：" + (tap.source || "—")
+    + "（模板 sha256 " + String(tap.template_sha256 || "").slice(0, 12) + "…）";
+}
+
+function renderStats(stats) {
+  if (!stats) { return; }
+  state.stats = stats;
+  var body = el("cv-table");
+  var html = "";
+  for (var i = 0; i < CV_FEATURES.length; i++) {
+    var key = CV_FEATURES[i];
+    var all = stats.features && stats.features[key] ? stats.features[key].cv : null;
+    var bonded = (stats.by_verdict && stats.by_verdict.BONDED
+                  && stats.by_verdict.BONDED.features[key])
+      ? stats.by_verdict.BONDED.features[key].cv : null;
+    var debond = (stats.by_verdict && stats.by_verdict.DEBOND
+                  && stats.by_verdict.DEBOND.features[key])
+      ? stats.by_verdict.DEBOND.features[key].cv : null;
+    html += "<tr><td>" + key + "</td><td>" + fmt(all, 1) + "%</td><td>"
+      + fmt(bonded, 1) + "%</td><td>" + fmt(debond, 1) + "%</td></tr>";
+  }
+  body.innerHTML = html;
+  var counts = stats.verdict_counts || {};
+  el("cv-note").textContent = "窗口 " + stats.window + " 次，已统计 " + stats.n
+    + " 次；判定计数 BONDED " + (counts.BONDED || 0) + " ／ DEBOND "
+    + (counts.DEBOND || 0) + " ／ UNKNOWN " + (counts.UNKNOWN || 0) + "。";
+}
+
+function renderTimeline() {
+  var box = el("timeline");
+  if (!state.taps.length) {
+    box.innerHTML = '<div class="hint">等待数据…</div>';
+    return;
+  }
+  var html = "";
+  var rows = state.taps.slice(-20).reverse();
+  for (var i = 0; i < rows.length; i++) {
+    var t = rows[i];
+    html += '<div class="tl-row"><span class="k">' + clock(t.t_ms) + "</span><span>#"
+      + (t.tap === undefined ? "—" : t.tap) + " ／ " + (t.dev || "—")
+      + (t.pt ? " · " + t.pt : "")
+      + '</span><span class="' + tagClass(t.verdict) + '">' + (t.verdict || "—")
+      + "</span><span>" + fmt(t.band_ratio_lh, 3) + "</span></div>";
+  }
+  box.innerHTML = html;
+}
+
+
+// ---------------------------------------------------------------------------
+// 网格测量：网页端（本页）是位置权威，设备只收到扁平点号 {"cmd":"point","v":idx}
+// idx = row*cols + col。GET/POST /api/grid 由分析服务提供；接口未就绪（404 等）
+// 时面板降级为一行提示，不抛异常、不影响其余面板。
+// ---------------------------------------------------------------------------
+var GRID_MIN = 2, GRID_MAX = 6, GRID_POLL_MS = 1000;
+var GRID_GRADE_TEXT = { normal: "正常", suspect: "可疑", hollow: "空鼓", empty: "无数据" };
+var gridState = { rows: 3, cols: 3, cells: [], current: null,
+                  ready: true, synced: false, dirty: false };
+var gridPollTimer = null;
+
+function is404(err) {
+  var text = String((err && err.message) || err || "");
+  return /(^|\D)404(\D|$)/.test(text);
+}
+
+function fillDimSelect(id, value) {
+  var node = el(id);
+  if (!node) { return; }
+  var html = "";
+  for (var n = GRID_MIN; n <= GRID_MAX; n++) {
+    html += '<option value="' + n + '">' + n + "</option>";
+  }
+  node.innerHTML = html;
+  node.value = String(value);
+}
+
+function gridCellHtml(cell) {
+  var idx = Number(cell && cell.idx);
+  if (!isFinite(idx)) { return ""; }
+  var nTaps = Number(cell && cell.n_taps);
+  if (!isFinite(nTaps)) { nTaps = 0; }
+  var grade = (cell && GRID_GRADE_TEXT[cell.grade]) ? cell.grade : "empty";
+  var ratio = Number(cell && cell.median_band_ratio);
+  var point = (cell && cell.point) ? String(cell.point) : ("P" + idx);
+  var cls = "grid-cell g-" + grade;
+  if (gridState.current !== null && gridState.current === idx) { cls += " current"; }
+  return '<button type="button" class="' + cls + '" data-idx="' + idx
+    + '" title="' + point + " ／ " + GRID_GRADE_TEXT[grade]
+    + (nTaps ? " ／ " + nTaps + " 拍" : "") + '">'
+    + '<span class="idx">' + idx + "</span>"
+    + '<span class="taps">' + (nTaps > 0 ? nTaps + "x" : "—") + "</span>"
+    + (nTaps > 0 && isFinite(ratio)
+       ? '<span class="ratio">' + ratio.toFixed(2) + "</span>" : "")
+    + "</button>";
+}
+
+function setGridAvailable(ok, text) {
+  var wrap = el("grid-wrap");
+  var note = el("grid-unavailable");
+  if (!wrap || !note) { return; }
+  gridState.ready = !!ok;
+  if (ok) {
+    wrap.classList.remove("hidden");
+    note.classList.add("hidden");
+    return;
+  }
+  wrap.classList.add("hidden");
+  note.textContent = text || "网格 API 未就绪";
+  note.classList.remove("hidden");
+}
+
+function renderGridCounter() {
+  var total = gridState.rows * gridState.cols;
+  var done = 0;
+  for (var i = 0; i < gridState.cells.length; i++) {
+    if (Number(gridState.cells[i] && gridState.cells[i].n_taps) > 0) { done++; }
+  }
+  el("grid-counter").textContent = "已完成 " + done + "/" + total + " 点";
+}
+
+function renderGrid(payload) {
+  if (!payload) { return; }
+  var rows = Number(payload.rows);
+  var cols = Number(payload.cols);
+  if (!isFinite(rows) || rows < 1) { rows = gridState.rows; }
+  if (!isFinite(cols) || cols < 1) { cols = gridState.cols; }
+  gridState.rows = rows;
+  gridState.cols = cols;
+  gridState.cells = payload.cells || [];
+  if (!gridState.synced || !gridState.dirty) {
+    fillDimSelect("grid-rows", rows);
+    fillDimSelect("grid-cols", cols);
+    gridState.synced = true;
+  }
+  var byIdx = {};
+  for (var i = 0; i < gridState.cells.length; i++) {
+    var cell = gridState.cells[i];
+    if (cell && isFinite(Number(cell.idx))) { byIdx[Number(cell.idx)] = cell; }
+  }
+  var html = "";
+  for (var idx = 0; idx < rows * cols; idx++) {
+    html += gridCellHtml(byIdx[idx] || { idx: idx, n_taps: 0, grade: "empty" });
+  }
+  var board = el("grid-board");
+  board.style.gridTemplateColumns = "repeat(" + cols + ",minmax(0,1fr))";
+  board.innerHTML = html;
+  renderGridCounter();
+  setGridAvailable(true);
+}
+
+function refreshGrid() {
+  return getJson("/api/grid").then(function (res) {
+    if (!res || res.ok === false) {
+      throw new Error((res && res.error) || "网格数据无效");
+    }
+    renderGrid(res);
+    return res;
+  }).catch(function (e) {
+    setGridAvailable(false, is404(e) ? "网格 API 未就绪（GET /api/grid 返回 404）"
+                                     : ("网格 API 未就绪：" + e.message));
+    return null;
+  });
+}
+
+function pointIndex(pt) {
+  var m = /^P(\d+)$/.exec(String(pt || ""));
+  return m ? Number(m[1]) : null;
+}
+
+function applyCurrentPoint(pt) {
+  var idx = pointIndex(pt);
+  gridState.current = idx;
+  var label = el("grid-current");
+  if (label) {
+    label.textContent = idx === null ? "当前测点：—" : ("当前测点：P" + idx);
+  }
+  var cells = document.querySelectorAll("#grid-board .grid-cell");
+  for (var i = 0; i < cells.length; i++) {
+    if (Number(cells[i].getAttribute("data-idx")) === idx) {
+      cells[i].classList.add("current");
+    } else {
+      cells[i].classList.remove("current");
+    }
+  }
+}
+
+function refreshCurrentPoint() {
+  return getJson("/api/point").then(function (res) {
+    applyCurrentPoint(res ? res.current_point : null);
+    return res;
+  }).catch(function () {
+    return null; // /api/point 缺失不影响网格本身
+  });
+}
+
+function applyGridDims() {
+  var rows = Number(el("grid-rows").value);
+  var cols = Number(el("grid-cols").value);
+  if (!(rows >= GRID_MIN && rows <= GRID_MAX
+        && cols >= GRID_MIN && cols <= GRID_MAX)) {
+    el("grid-msg").textContent = "网格行列需在 " + GRID_MIN + "～" + GRID_MAX + " 之间";
+    return;
+  }
+  el("grid-msg").textContent = "正在应用 " + rows + "×" + cols + " 网格…";
+  postJson("/api/grid", { rows: rows, cols: cols }).then(function (res) {
+    if (res && res.ok === false) { throw new Error(res.error || "网格设置被拒绝"); }
+    gridState.dirty = false;
+    el("grid-msg").textContent = "已应用 " + rows + "×" + cols + " 网格";
+    if (res && res.cells) { renderGrid(res); } else { refreshGrid(); }
+  }).catch(function (e) {
+    el("grid-msg").textContent = is404(e) ? "网格 API 未就绪（POST /api/grid 返回 404）"
+                                          : ("应用失败：" + e.message);
+    if (is404(e)) { setGridAvailable(false, "网格 API 未就绪（POST /api/grid 返回 404）"); }
+  });
+}
+
+function selectPointAt(idx) {
+  var pt = "P" + idx;
+  el("grid-msg").textContent = "已发送切换 " + pt + "（cmd point v=" + idx + "）…";
+  postJson("/api/point", { point: pt }).then(function (res) {
+    el("grid-msg").textContent = "已发送 " + pt
+      + (res && res.cmd_mid !== undefined ? "（cmd_mid " + res.cmd_mid + "）" : "");
+    applyCurrentPoint(pt);
+    setTimeout(refreshCurrentPoint, 600);
+  }).catch(function (e) {
+    el("grid-msg").textContent = "切换失败：" + e.message;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// 相对分级（双面差分测量）：GET /api/points 取测点/基准，POST /api/reference 设基准，
+// POST /api/config 写回分级方式与阈值。接口未就绪时面板降级为一行提示。
+// ---------------------------------------------------------------------------
+var RHO_MIN_SCALE = 2.0;
+var GRADE_TEXT = { G0: "G0", G1: "G1", G2: "G2", NODATA: "NODATA" };
+var gradeState = { points: [], reference: null,
+                   rule: { t1: 0.8, t2: 0.5, mode: "group" },
+                   ready: true, synced: false, dirty: false };
+
+function clampNum(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
+
+function confText(v) {
+  if (v === null || v === undefined) { return "—"; }
+  var n = Number(v);
+  if (!isFinite(n)) { return "—"; }
+  return (n <= 1 ? (100 * n) : n).toFixed(0) + "%";
+}
+
+function gradeChipHtml(grade) {
+  var g = GRADE_TEXT[grade] ? grade : "NODATA";
+  var cls = (g === "G0") ? "chip g0" : (g === "G1") ? "chip g1"
+    : (g === "G2") ? "chip g2" : "chip nodata";
+  return '<span class="' + cls + '">' + g + "</span>";
+}
+
+function rhoCellHtml(p, scale) {
+  if (!p) { return "—"; }
+  if (p.is_reference) {
+    return '<span class="num">1.00</span><span class="ref-tag">基准</span>';
+  }
+  var rho = Number(p.rho);
+  if (p.rho === null || p.rho === undefined || !isFinite(rho)) {
+    return '<span class="hint">—</span>';
+  }
+  var html = "";
+  var ci = p.rho_ci;
+  if (ci && ci.length === 2 && isFinite(Number(ci[0])) && isFinite(Number(ci[1]))) {
+    var s = scale || RHO_MIN_SCALE;
+    var lo = clampNum(Number(ci[0]) / s, 0, 1) * 100;
+    var hi = clampNum(Number(ci[1]) / s, 0, 1) * 100;
+    var dot = clampNum(rho / s, 0, 1) * 100;
+    html += '<span class="rhobar" title="rho ' + rho.toFixed(2) + "，95% CI ["
+      + Number(ci[0]).toFixed(2) + ", " + Number(ci[1]).toFixed(2) + ']">'
+      + '<span class="rhobar-ci" style="left:' + lo.toFixed(1) + "%;width:"
+      + Math.max(1, hi - lo).toFixed(1) + '%"></span>'
+      + '<span class="rhobar-dot" style="left:' + dot.toFixed(1) + '%"></span>'
+      + "</span>";
+  }
+  return html + '<span class="num" style="margin-left:6px">' + rho.toFixed(2) + "</span>";
+}
+
+function syncGradeInputs() {
+  el("grade-mode").value = gradeState.rule.mode;
+  el("grade-t1").value = Number(gradeState.rule.t1).toFixed(2);
+  el("grade-t2").value = Number(gradeState.rule.t2).toFixed(2);
+  gradeState.synced = true;
+}
+
+function renderGradeRef() {
+  var label = el("grade-ref");
+  if (!label) { return; }
+  var ref = gradeState.reference;
+  if (!ref) {
+    label.textContent = "当前基准：未设基准（可「自动选基准」，或在表内选一个测点）";
+    return;
+  }
+  label.textContent = "当前基准：" + ref.point
+    + "（r_ref " + fmt(ref.r_ref, 3) + "，f_ref " + fmt(ref.f_ref, 1) + " Hz，"
+    + (ref.n_taps === undefined || ref.n_taps === null ? "—" : ref.n_taps) + " 拍，"
+    + (ref.source === "auto" ? "自动" : "手动") + "）";
+}
+
+function renderGradeConclusion() {
+  var counts = { G0: 0, G1: 0, G2: 0, NODATA: 0 };
+  for (var i = 0; i < gradeState.points.length; i++) {
+    var g = gradeState.points[i].grade;
+    counts[GRADE_TEXT[g] ? g : "NODATA"]++;
+  }
+  var text = "G0 " + counts.G0 + " ／ G1 " + counts.G1 + " ／ G2 " + counts.G2
+    + " ／ NODATA " + counts.NODATA + "（共 " + gradeState.points.length + " 点）";
+  text += gradeState.reference
+    ? "｜基准点：" + gradeState.reference.point
+    : "｜未设基准";
+  el("grade-conclusion").textContent = text;
+}
+
+function renderPointsTable() {
+  var pts = gradeState.points;
+  var scale = RHO_MIN_SCALE;
+  for (var k = 0; k < pts.length; k++) {
+    var ci = pts[k].rho_ci;
+    if (ci && ci.length === 2 && isFinite(Number(ci[1]))) {
+      scale = Math.max(scale, Number(ci[1]) * 1.05);
+    }
+  }
+  var html = "";
+  for (var i = 0; i < pts.length; i++) {
+    var p = pts[i];
+    var ratio = (p.median_band_ratio === null || p.median_band_ratio === undefined)
+      ? "—" : Number(p.median_band_ratio).toFixed(2);
+    var btn = p.is_reference
+      ? '<button class="setref" data-pt="' + p.point + '" disabled>设为基准</button>'
+      : '<button class="setref" data-pt="' + p.point + '">设为基准</button>';
+    html += "<tr" + (p.is_reference ? ' class="refrow"' : "") + ">"
+      + "<td>" + p.point + (p.is_reference ? '<span class="ref-tag">基准</span>' : "") + "</td>"
+      + '<td class="num">' + fmt(p.n_taps, 0) + "</td>"
+      + '<td class="num">' + ratio + "</td>"
+      + "<td>" + rhoCellHtml(p, scale) + "</td>"
+      + "<td>" + gradeChipHtml(p.grade) + "</td>"
+      + '<td class="num">' + confText(p.confidence) + "</td>"
+      + "<td>" + btn + "</td></tr>";
+  }
+  if (!html) { html = '<tr><td colspan="7" class="hint">等待测点数据…</td></tr>'; }
+  el("points-body").innerHTML = html;
+}
+
+function showGradeUnavailable(text) {
+  var wrap = el("grade-body");
+  var note = el("grade-unavailable");
+  if (!wrap || !note) { return; }
+  gradeState.ready = !text;
+  if (!text) {
+    wrap.classList.remove("hidden");
+    note.classList.add("hidden");
+    return;
+  }
+  wrap.classList.add("hidden");
+  note.textContent = text;
+  note.classList.remove("hidden");
+}
+
+function renderGrading(payload) {
+  if (!payload || payload.ok === false) {
+    showGradeUnavailable("相对分级 API 未就绪"
+      + (payload && payload.error ? "：" + payload.error : ""));
+    return;
+  }
+  gradeState.points = payload.points || [];
+  gradeState.reference = payload.reference || null;
+  if (payload.grade_rule) {
+    var rule = payload.grade_rule;
+    if (rule.t1 !== undefined) { gradeState.rule.t1 = Number(rule.t1); }
+    if (rule.t2 !== undefined) { gradeState.rule.t2 = Number(rule.t2); }
+    if (rule.mode) { gradeState.rule.mode = rule.mode; }
+  }
+  if (payload.grade_mode) { gradeState.rule.mode = payload.grade_mode; }
+  if (!gradeState.synced || !gradeState.dirty) { syncGradeInputs(); }
+  renderGradeRef();
+  renderGradeConclusion();
+  renderPointsTable();
+  showGradeUnavailable("");
+}
+
+function refreshPoints() {
+  return getJson("/api/points").then(function (res) {
+    if (!res || res.ok === false) {
+      throw new Error((res && res.error) || "非 ok");
+    }
+    renderGrading(res);
+    return res;
+  }).catch(function (e) {
+    showGradeUnavailable(is404(e) ? "相对分级 API 未就绪（GET /api/points 返回 404）"
+                                  : ("相对分级 API 未就绪：" + e.message));
+    return null;
+  });
+}
+
+function postGradeConfig() {
+  var mode = el("grade-mode").value;
+  var t1 = Number(el("grade-t1").value);
+  var t2 = Number(el("grade-t2").value);
+  var problems = [];
+  if (!(t1 >= 0.3 && t1 <= 1.2)) { problems.push("T1 需在 0.30～1.20"); }
+  if (!(t2 >= 0.05 && t2 < t1)) { problems.push("T2 需在 0.05～T1 之间"); }
+  if (problems.length) {
+    el("grade-msg").textContent = problems.join("；");
+    return;
+  }
+  el("grade-msg").textContent = "正在写回分级参数…";
+  postJson("/api/config", { grade_mode: mode, grade_t1: t1, grade_t2: t2 })
+    .then(function (res) {
+      if (res && res.ok === false) { throw new Error(res.error || "写入被拒绝"); }
+      gradeState.rule = { t1: t1, t2: t2, mode: mode };
+      gradeState.dirty = false;
+      el("grade-msg").textContent = "已应用：" + mode + "，T1=" + t1.toFixed(2)
+        + "，T2=" + t2.toFixed(2);
+      refreshPoints();
+    }).catch(function (e) {
+      el("grade-msg").textContent = "应用失败：" + e.message;
+    });
+}
+
+function setReference(point) {
+  var label = point === "auto" ? "自动选基准"
+    : (point === "clear" ? "清空基准" : ("把 " + point + " 设为基准"));
+  el("grade-msg").textContent = label + "：请求已发送…";
+  postJson("/api/reference", { point: point }).then(function (res) {
+    if (res && res.ok === false) { throw new Error(res.error || "请求被拒绝"); }
+    el("grade-msg").textContent = label + "：已完成";
+    if (res && res.points && res.points.points) { renderGrading(res.points); }
+    else if (res && res.data && res.data.points) { renderGrading(res.data); }
+    else { refreshPoints(); }
+  }).catch(function (e) {
+    el("grade-msg").textContent = label + "失败：" + e.message;
+  });
+}
+
+function pollDashboard() {
+  refreshGrid();
+  refreshCurrentPoint();
+  refreshPoints();
+}
+
+function startPolling() {
+  if (gridPollTimer !== null) { return; }
+  fillDimSelect("grid-rows", gridState.rows);
+  fillDimSelect("grid-cols", gridState.cols);
+  gridPollTimer = setInterval(pollDashboard, GRID_POLL_MS);
+}
+
+function postJson(path, payload) {
+  return fetch(API_BASE + path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  }).then(function (r) {
+    return r.json().then(function (body) {
+      if (!r.ok) { throw new Error(body.error || ("HTTP " + r.status)); }
+      return body;
+    });
+  });
+}
+
+el("btn-apply-grid").addEventListener("click", applyGridDims);
+el("grid-rows").addEventListener("change", function () { gridState.dirty = true; });
+el("grid-cols").addEventListener("change", function () { gridState.dirty = true; });
+el("grid-board").addEventListener("click", function (ev) {
+  var target = ev.target;
+  if (!target || !target.closest) { return; }
+  var cell = target.closest(".grid-cell");
+  if (!cell) { return; }
+  var idx = Number(cell.getAttribute("data-idx"));
+  if (!isFinite(idx)) { return; }
+  selectPointAt(idx);
+});
+
+el("btn-apply-grade").addEventListener("click", postGradeConfig);
+el("grade-mode").addEventListener("change", function () { gradeState.dirty = true; });
+el("grade-t1").addEventListener("change", function () { gradeState.dirty = true; });
+el("grade-t2").addEventListener("change", function () { gradeState.dirty = true; });
+el("btn-auto-ref").addEventListener("click", function () { setReference("auto"); });
+el("btn-clear-ref").addEventListener("click", function () { setReference("clear"); });
+el("points-body").addEventListener("click", function (ev) {
+  var target = ev.target;
+  if (!target || !target.getAttribute) { return; }
+  var pt = target.getAttribute("data-pt");
+  if (!pt) { return; }
+  setReference(pt);
+});
+
+function renderWave(wave) {
+  var canvas = el("waveplot");
+  var g = canvas.getContext("2d");
+  g.clearRect(0, 0, canvas.width, canvas.height);
+  if (!wave || !wave.env || !wave.env.length) {
+    el("wave-info").textContent = "等待数据…";
+    return;
+  }
+  var env = wave.env;
+  var max = 0.0001;
+  for (var i = 0; i < env.length; i++) { max = Math.max(max, env[i]); }
+  var w = canvas.width, h = canvas.height;
+  g.strokeStyle = "#58a6ff";
+  g.lineWidth = 2;
+  g.beginPath();
+  for (var j = 0; j < env.length; j++) {
+    var x = (j / (env.length - 1)) * w;
+    var y = h - (env[j] / max) * (h - 12) - 6;
+    if (j) { g.lineTo(x, y); } else { g.moveTo(x, y); }
+  }
+  g.stroke();
+  g.strokeStyle = "#21262d";
+  g.lineWidth = 1;
+  if (wave.pre && wave.n) {
+    var xp = (wave.pre / wave.n) * w;
+    g.beginPath();
+    g.moveTo(xp, 0);
+    g.lineTo(xp, h);
+    g.stroke();
+    g.fillStyle = "#8b949e";
+    g.font = "11px system-ui";
+    g.fillText("触发点", Math.min(xp + 4, w - 40), 14);
+  }
+  el("wave-info").textContent = "fs " + fmt(wave.fs, 0) + " Hz ／ 窗长 "
+    + fmt(wave.duration_ms, 0) + " ms ／ 峰 " + fmt(wave.peak_g, 3) + " g ／ RMS "
+    + fmt(wave.rms_g, 4) + " g（96 点包络摘要，竖线为触发帧）";
+}
+
+// ---------------------------------------------------------------------------
+// 原始流（MQTT over WebSocket 直连 8080）：只负责模值与原始 JSON
+// ---------------------------------------------------------------------------
+var hist = [];
+var rawCount = 0;
+var client = mqtt.connect(MQTT_WS_URL, {
+  clientId: "dashboard-" + Math.random().toString(16).slice(2, 8)
+});
+client.on("connect", function () {
+  pill("conn", "原始流：已连接 8080", "ok");
+  client.subscribe(["probe/+/measurement", "probe/+/status", "probe/+/event",
+                    "probe/+/waveform", "probe/+/stream"]);
+});
+client.on("close", function () { pill("conn", "原始流：连接断开", "bad"); });
+client.on("error", function (e) { pill("conn", "原始流：错误 " + e.message, "bad"); });
+client.on("message", function (topic, buf) {
+  var text = buf.toString();
+  if (topic.indexOf("/status") >= 0) {
+    if (text === "online" || text === "offline") {
+      el("dev").textContent = "设备：" + text;
+    }
+    return;
+  }
+  if (topic.indexOf("/event") >= 0) { return; }
+  if (topic.indexOf("/waveform") >= 0) { handleRawWave(text); return; }
+  if (topic.indexOf("/stream") >= 0) { handleStreamFrame(text); return; }
+  var d;
+  try { d = JSON.parse(text); } catch (e) { return; }
+  if (!d || !d.t1) { return; }
+  rawCount++;
+  el("raw").textContent = text;
+  var t1 = d.t1 || [0, 0, 0];
+  var mag = Math.sqrt(t1[0] * t1[0] + t1[1] * t1[1] + t1[2] * t1[2]);
+  el("mag").textContent = mag.toFixed(4) + " g";
+  hist.push(mag);
+  if (hist.length > 120) { hist.shift(); }
+  drawMag();
+});
+function drawMag() {
+  var c = el("plot");
+  var g = c.getContext("2d");
+  g.clearRect(0, 0, c.width, c.height);
+  // 网格与零线：没有原始流帧时也给出一个可读的坐标框，而不是空盒子
+  g.strokeStyle = "#21262d";
+  g.lineWidth = 1;
+  for (var gy = 0; gy <= 3; gy++) {
+    var y = 5 + (c.height - 10) * gy / 3;
+    g.beginPath();
+    g.moveTo(0, y);
+    g.lineTo(c.width, y);
+    g.stroke();
+  }
+  g.fillStyle = "#8b949e";
+  g.font = "11px system-ui";
+  g.fillText("0 g", 4, c.height - 6);
+  el("mag-hint").className = hist.length < 2 ? "hint" : "hint hidden";
+  if (hist.length < 2) { return; }
+  var max = 0.001;
+  for (var i = 0; i < hist.length; i++) { max = Math.max(max, hist[i]); }
+  g.strokeStyle = "#2ea043";
+  g.lineWidth = 2;
+  g.beginPath();
+  for (var j = 0; j < hist.length; j++) {
+    var x = (j / (hist.length - 1)) * c.width;
+    var y = c.height - (hist[j] / max) * (c.height - 10) - 5;
+    if (j) { g.lineTo(x, y); } else { g.moveTo(x, y); }
+  }
+  g.stroke();
+}
+
+// ---------------------------------------------------------------------------
+// 高精度原始波形：probe/+/waveform（base64，小端 int16，x/y/z 交错）
+// 聚合按“像素列”做：每列覆盖的样本区间求 min/max/rms/peak，避免抽稀丢峰；
+// 每帧覆盖上一帧、不保留历史；不 publish、不动订阅。
+// ---------------------------------------------------------------------------
+var RAW_AXIS = "mag";
+var RAW_MODE = "raw";
+var RAW_WIN = 32;
+var RAW_OVERLAY = false;
+var rawWave = null;
+
+function b64ToInt16(b64) {
+  var bin = atob(b64);
+  var len = bin.length;
+  var bytes = new Uint8Array(len);
+  for (var i = 0; i < len; i++) { bytes[i] = bin.charCodeAt(i) & 0xff; }
+  var count = Math.floor(len / 2);
+  var out = new Int16Array(count);
+  // 必须走 DataView 按小端读，直接 new Int16Array(buffer) 会踩主机字节序的坑
+  var view = new DataView(bytes.buffer, bytes.byteOffset, count * 2);
+  for (var j = 0; j < count; j++) { out[j] = view.getInt16(j * 2, true); }
+  return out;
+}
+
+function handleRawWave(text) {
+  var d;
+  try { d = JSON.parse(text); } catch (e) { return; }
+  if (!d || typeof d.d !== "string" || !d.d) { return; }
+  var n = Number(d.n);
+  var fs = Number(d.fs);
+  if (!isFinite(n) || n <= 0 || !isFinite(fs) || fs <= 0) { return; }
+  var raw;
+  try { raw = b64ToInt16(d.d); } catch (e) { return; }
+  if (raw.length < n * 3) { return; }
+  var scale = Number(d.scale);
+  if (!isFinite(scale) || scale <= 0) { scale = 8192; }
+  var x = new Float32Array(n), y = new Float32Array(n), z = new Float32Array(n);
+  var mag = new Float32Array(n);
+  var peak = 0;
+  for (var i = 0; i < n; i++) {
+    var xv = raw[i * 3] / scale;
+    var yv = raw[i * 3 + 1] / scale;
+    var zv = raw[i * 3 + 2] / scale;
+    x[i] = xv; y[i] = yv; z[i] = zv;
+    var m = Math.sqrt(xv * xv + yv * yv + zv * zv);
+    mag[i] = m;
+    if (m > peak) { peak = m; }
+  }
+  var pre = Number(d.pre);
+  rawWave = { dev: d.dev || "—", pt: d.pt || "—", seq: d.seq, tap: d.tap,
+              fs: fs, n: n, pre: isFinite(pre) ? pre : null, scale: scale,
+              x: x, y: y, z: z, mag: mag, peak: peak };
+  renderRawWave();
+}
+
+function rawValues(w) {
+  if (!w) { return null; }
+  if (RAW_AXIS === "x") { return w.x; }
+  if (RAW_AXIS === "y") { return w.y; }
+  if (RAW_AXIS === "z") { return w.z; }
+  return w.mag;
+}
+
+function rawAxisLabel() {
+  if (RAW_AXIS === "x") { return "X（g）"; }
+  if (RAW_AXIS === "y") { return "Y（g）"; }
+  if (RAW_AXIS === "z") { return "Z（g）"; }
+  return "|a|（g）";
+}
+
+function rawModeLabel() {
+  if (RAW_MODE === "minmax") { return "Min-Max 包络"; }
+  if (RAW_MODE === "rms") { return "滑动 RMS"; }
+  return "原始曲线";
+}
+
+// 每个像素列覆盖的样本区间：以列中心为基准展开 bin 个样本（可重叠），再夹到 [0,n-1]
+function rawColumnRange(n, cols, col, bin) {
+  var center = (col + 0.5) * n / cols;
+  var i0 = Math.floor(center - bin / 2);
+  var i1 = i0 + bin - 1;
+  if (i0 < 0) { i1 -= i0; i0 = 0; }
+  if (i1 > n - 1) { i0 -= (i1 - (n - 1)); i1 = n - 1; }
+  if (i0 < 0) { i0 = 0; }
+  if (i1 < i0) { i1 = i0; }
+  return [i0, i1];
+}
+
+// 每像素列的 min / max / rms / peak(abs)；bin 为包络分箱下限（样本数 >= max(每列样本数, 窗口)）
+function rawEnvelope(vals, cols, win) {
+  var n = vals.length;
+  var per = Math.ceil(n / cols);
+  var bin = (per <= 1) ? 1 : Math.max(per, win);
+  var out = { min: new Float32Array(cols), max: new Float32Array(cols),
+              rms: new Float32Array(cols), peak: new Float32Array(cols) };
+  for (var col = 0; col < cols; col++) {
+    var range = rawColumnRange(n, cols, col, bin);
+    var i0 = range[0], i1 = range[1];
+    var mn = vals[i0], mx = vals[i0], sum2 = 0, cnt = 0, pk = 0;
+    for (var i = i0; i <= i1; i++) {
+      var v = vals[i];
+      if (v < mn) { mn = v; }
+      if (v > mx) { mx = v; }
+      var av = Math.abs(v);
+      if (av > pk) { pk = av; }
+      sum2 += v * v; cnt++;
+    }
+    out.min[col] = mn; out.max[col] = mx;
+    out.rms[col] = cnt ? Math.sqrt(sum2 / cnt) : 0;
+    out.peak[col] = pk;
+  }
+  return out;
+}
+
+function rawSlidingRms(vals, cols, win) {
+  var n = vals.length;
+  var per = Math.ceil(n / cols);
+  var w = (per <= 1) ? 1 : Math.max(per, win);
+  var out = new Float32Array(cols);
+  for (var col = 0; col < cols; col++) {
+    var range = rawColumnRange(n, cols, col, w);
+    var i0 = range[0], i1 = range[1], sum2 = 0, cnt = 0;
+    for (var i = i0; i <= i1; i++) { sum2 += vals[i] * vals[i]; cnt++; }
+    out[col] = cnt ? Math.sqrt(sum2 / cnt) : 0;
+  }
+  return out;
+}
+
+function rawStats(vals, fs) {
+  var n = vals.length;
+  var mn = vals[0], mx = vals[0], sum2 = 0, pk = 0, pi = 0;
+  for (var i = 0; i < n; i++) {
+    var v = vals[i];
+    if (v < mn) { mn = v; }
+    if (v > mx) { mx = v; }
+    sum2 += v * v;
+    var av = Math.abs(v);
+    if (av > pk) { pk = av; pi = i; }
+  }
+  var st = { pp: mx - mn, rms: n ? Math.sqrt(sum2 / n) : 0,
+             peakTime: fs > 0 ? pi / fs * 1000 : null, rise: null, decay: null };
+  if (pk > 0) {
+    var i10 = -1, i90 = -1;
+    for (var a = 0; a <= pi; a++) {
+      var av2 = Math.abs(vals[a]);
+      if (i10 < 0 && av2 >= 0.10 * pk) { i10 = a; }
+      if (av2 >= 0.90 * pk) { i90 = a; break; }
+    }
+    if (i10 >= 0 && i90 >= 0) { st.rise = (i90 - i10) / fs * 1000; }
+    for (var b = pi; b < n; b++) {
+      if (Math.abs(vals[b]) <= 0.15 * pk) { st.decay = (b - pi) / fs * 1000; break; }
+    }
+  }
+  return st;
+}
+
+function updateRawWaveInfo() {
+  var info = el("rawwave-info");
+  if (!info) { return; }
+  if (!rawWave) {
+    info.textContent = "等待 probe/+/waveform 帧…";
+    return;
+  }
+  var vals = rawValues(rawWave);
+  var st = vals && vals.length ? rawStats(vals, rawWave.fs)
+                               : { pp: null, rms: null, peakTime: null, rise: null, decay: null };
+  info.textContent = "fs " + fmt(rawWave.fs, 0) + " Hz ／ 点数 " + rawWave.n
+    + " ／ 触发点 " + (rawWave.pre === null ? "—" : rawWave.pre)
+    + " ／ 峰值 " + fmt(rawWave.peak, 3) + " g ／ seq "
+    + (rawWave.seq === undefined ? "—" : rawWave.seq)
+    + (rawWave.dev ? " ／ " + rawWave.dev : "")
+    + (rawWave.pt ? " · " + rawWave.pt : "")
+    + " ／ 峰峰值 " + fmt(st.pp, 3) + " g"
+    + " ／ RMS " + fmt(st.rms, 3) + " g"
+    + " ／ 峰值时刻 " + (st.peakTime === null ? "—" : fmt(st.peakTime, 2) + " ms")
+    + " ／ 上升时间 " + (st.rise === null ? "—" : fmt(st.rise, 2) + " ms")
+    + " ／ 衰减到 15% " + (st.decay === null ? "—" : fmt(st.decay, 2) + " ms");
+}
+
+function renderRawWave() {
+  var canvas = el("rawwave-canvas");
+  if (!canvas) { return; }
+  var dpr = (typeof window !== "undefined" && window.devicePixelRatio) || 1;
+  var cssW = canvas.clientWidth || 600;
+  var cssH = 400;
+  var pxW = Math.max(1, Math.round(cssW * dpr));
+  var pxH = Math.max(1, Math.round(cssH * dpr));
+  if (canvas.width !== pxW) { canvas.width = pxW; }
+  if (canvas.height !== pxH) { canvas.height = pxH; }
+  var g = canvas.getContext("2d");
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, cssW, cssH);
+  var padL = 46, padR = 12, padT = 16, padB = 24;
+  var W = Math.max(10, cssW - padL - padR);
+  var H = Math.max(10, cssH - padT - padB);
+  // 没有帧时也给一个可读的坐标框，而不是空白
+  g.strokeStyle = "#21262d";
+  g.lineWidth = 1;
+  g.strokeRect(padL, padT, W, H);
+  if (!rawWave) {
+    g.fillStyle = "#8b949e";
+    g.font = "12px system-ui";
+    g.textAlign = "center";
+    g.fillText("等待 probe/+/waveform 帧…", padL + W / 2, padT + H / 2);
+    g.textAlign = "start";
+    updateRawWaveInfo();
+    return;
+  }
+  var vals = rawValues(rawWave);
+  if (!vals || !vals.length) { updateRawWaveInfo(); return; }
+  var n = vals.length;
+  var vmin = vals[0], vmax = vals[0];
+  for (var i = 1; i < n; i++) {
+    if (vals[i] < vmin) { vmin = vals[i]; }
+    if (vals[i] > vmax) { vmax = vals[i]; }
+  }
+  vmin = Math.min(0, vmin); vmax = Math.max(0, vmax);
+  var span = vmax - vmin;
+  if (span < 1e-9) { vmax = vmin + 1e-3; span = vmax - vmin; }
+  vmin -= span * 0.08; vmax += span * 0.08; span = vmax - vmin;
+  function xOf(i) { return padL + (n <= 1 ? 0 : (i / (n - 1)) * W); }
+  function yOf(v) { return padT + (vmax - v) / span * H; }
+  g.font = "10px system-ui";
+  g.fillStyle = "#8b949e";
+  for (var t = 0; t <= 4; t++) {
+    var yy = padT + H * t / 4;
+    g.strokeStyle = "#21262d";
+    g.beginPath(); g.moveTo(padL, yy); g.lineTo(padL + W, yy); g.stroke();
+    g.fillText((vmax - span * t / 4).toFixed(2), 4, yy + 3);
+  }
+  if (vmin <= 0 && vmax >= 0) {
+    g.strokeStyle = "#484f58";
+    g.beginPath(); g.moveTo(padL, yOf(0)); g.lineTo(padL + W, yOf(0)); g.stroke();
+  }
+  for (var s = 0; s <= 4; s++) {
+    var xx = padL + W * s / 4;
+    g.strokeStyle = "#21262d";
+    g.beginPath(); g.moveTo(xx, padT + H); g.lineTo(xx, padT + H + 4); g.stroke();
+    g.fillText((rawWave.n * (s / 4) / rawWave.fs * 1000).toFixed(1) + " ms",
+               xx - 14, padT + H + 15);
+  }
+  if (rawWave.pre !== null && rawWave.pre >= 0 && rawWave.pre <= rawWave.n) {
+    var xt = padL + W * (rawWave.pre / rawWave.n);
+    g.strokeStyle = "#d29922";
+    g.setLineDash([4, 3]);
+    g.beginPath(); g.moveTo(xt, padT); g.lineTo(xt, padT + H); g.stroke();
+    g.setLineDash([]);
+    g.fillStyle = "#e3b341";
+    g.fillText("触发点", Math.min(xt + 4, padL + W - 40), padT + 10);
+    g.fillStyle = "#8b949e";
+  }
+  var cols = Math.max(1, Math.round(W));
+  function xOfCol(c2) { return padL + (c2 + 0.5) * W / cols; }
+  if (RAW_MODE === "minmax") {
+    var env = rawEnvelope(vals, cols, RAW_WIN);
+    g.beginPath();
+    for (var c1 = 0; c1 < cols; c1++) {
+      var ym = yOf(env.max[c1]);
+      if (c1) { g.lineTo(xOfCol(c1), ym); } else { g.moveTo(xOfCol(c1), ym); }
+    }
+    for (var c2b = cols - 1; c2b >= 0; c2b--) {
+      g.lineTo(xOfCol(c2b), yOf(env.min[c2b]));
+    }
+    g.closePath();
+    g.fillStyle = "rgba(88,166,255,0.12)";
+    g.fill();
+    g.strokeStyle = "#58a6ff";
+    g.lineWidth = 1;
+    for (var edge = 0; edge < 2; edge++) {
+      g.beginPath();
+      for (var c3 = 0; c3 < cols; c3++) {
+        var yv = yOf(edge ? env.min[c3] : env.max[c3]);
+        if (c3) { g.lineTo(xOfCol(c3), yv); } else { g.moveTo(xOfCol(c3), yv); }
+      }
+      g.stroke();
+    }
+  } else if (RAW_MODE === "rms") {
+    var rmsCols = rawSlidingRms(vals, cols, RAW_WIN);
+    g.strokeStyle = "#d29922";
+    g.lineWidth = 1.5;
+    g.beginPath();
+    for (var c4 = 0; c4 < cols; c4++) {
+      var yr = yOf(rmsCols[c4]);
+      if (c4) { g.lineTo(xOfCol(c4), yr); } else { g.moveTo(xOfCol(c4), yr); }
+    }
+    g.stroke();
+  } else {
+    g.strokeStyle = "#58a6ff";
+    g.lineWidth = 1.5;
+    g.beginPath();
+    for (var j = 0; j < n; j++) {
+      var cx = xOf(j), cy = yOf(vals[j]);
+      if (j) { g.lineTo(cx, cy); } else { g.moveTo(cx, cy); }
+    }
+    g.stroke();
+  }
+  if (RAW_OVERLAY) {
+    var env2 = rawEnvelope(vals, cols, RAW_WIN);
+    var run = 0;
+    g.strokeStyle = "rgba(249,168,37,0.6)";
+    g.lineWidth = 1;
+    g.beginPath();
+    for (var c5 = 0; c5 < cols; c5++) {
+      if (env2.peak[c5] > run) { run = env2.peak[c5]; }
+      var yh = yOf(run);
+      if (c5) { g.lineTo(xOfCol(c5), yh); } else { g.moveTo(xOfCol(c5), yh); }
+    }
+    g.stroke();
+  }
+  g.fillStyle = "#8b949e";
+  g.fillText(rawAxisLabel() + " · " + rawModeLabel() + "（窗口 " + RAW_WIN + "）",
+             padL, padT - 4);
+  g.fillText("时间（ms）", padL + W - 54, cssH - 4);
+  updateRawWaveInfo();
+}
+
+el("rawwave-axes").addEventListener("click", function (ev) {
+  var target = ev.target;
+  if (!target || !target.getAttribute) { return; }
+  var axis = target.getAttribute("data-axis");
+  if (!axis) { return; }
+  RAW_AXIS = axis;
+  var btns = document.querySelectorAll("#rawwave-axes button");
+  for (var i = 0; i < btns.length; i++) {
+    if (btns[i].getAttribute("data-axis") === axis) { btns[i].classList.add("active"); }
+    else { btns[i].classList.remove("active"); }
+  }
+  renderRawWave();
+});
+
+el("rawwave-mode").addEventListener("change", function (ev) {
+  var mode = ev && ev.target ? ev.target.value : null;
+  if (mode !== "raw" && mode !== "minmax" && mode !== "rms") { return; }
+  RAW_MODE = mode;
+  renderRawWave();
+});
+
+el("rawwave-win").addEventListener("change", function () {
+  var win = Number(el("rawwave-win").value);
+  RAW_WIN = (isFinite(win) && win >= 1) ? win : 32;
+  renderRawWave();
+});
+
+el("rawwave-overlay").addEventListener("change", function () {
+  RAW_OVERLAY = !!el("rawwave-overlay").checked;
+  renderRawWave();
+});
+
+if (typeof window !== "undefined" && window.addEventListener) {
+  window.addEventListener("resize", renderRawWave);
+}
+
+// ---------------------------------------------------------------------------
+// 实时瀑布图：probe/+/stream（≈20 ms/帧，base64 小端 int16，xyz 交错）
+// 选定分量压进 8192 点环形缓冲；每累计 WF_HOP=128 个样本，取最新 512 点加
+// Hann 窗做 radix-2 FFT，0–3000 Hz 幅度 → dB → 颜色，向右滚一列（只平移历史）。
+// 流的开关通过 probe/<dev>/cmd {"cmd":"wave_stream","on":0/1} 控制，不 publish。
+// ---------------------------------------------------------------------------
+var WF_FFT_SIZE = 512;
+var WF_HOP = 128;
+var WF_BUF_SIZE = 8192;
+var WF_MAX_HZ = 3000;
+var WF_DB_MIN = -80;
+var WF_DB_MAX = -10;
+var WF_AXIS_LABEL = { mag: "|a|", x: "X", y: "Y", z: "Z" };
+
+var waterfall = {
+  on: false,
+  axis: "mag",
+  fs: 0,
+  scale: 8192,
+  buf: new Float32Array(WF_BUF_SIZE),
+  head: 0,
+  count: 0,
+  pending: 0,
+  frames: 0,
+  columns: 0,
+  frameTimes: [],
+  spectrum: new Float32Array(WF_FFT_SIZE / 2 + 1)
+};
+var wfRe = new Float64Array(WF_FFT_SIZE);
+var wfIm = new Float64Array(WF_FFT_SIZE);
+var wfWindow = (function () {
+  var w = new Float64Array(WF_FFT_SIZE);
+  for (var i = 0; i < WF_FFT_SIZE; i++) {
+    w[i] = 0.5 * (1 - Math.cos(2 * Math.PI * i / (WF_FFT_SIZE - 1)));
+  }
+  return w;
+})();
+var wfPalette = (function () {
+  var stops = [[13, 17, 23], [31, 111, 235], [249, 168, 37], [248, 81, 73]];
+  var out = new Array(256);
+  for (var i = 0; i < 256; i++) {
+    var t = i / 255;
+    var seg = t < 1 / 3 ? 0 : (t < 2 / 3 ? 1 : 2);
+    var local = t * 3 - seg;
+    if (local < 0) { local = 0; }
+    if (local > 1) { local = 1; }
+    var a = stops[seg], b = stops[seg + 1];
+    out[i] = "rgb(" + Math.round(a[0] + (b[0] - a[0]) * local) + ","
+      + Math.round(a[1] + (b[1] - a[1]) * local) + ","
+      + Math.round(a[2] + (b[2] - a[2]) * local) + ")";
+  }
+  return out;
+})();
+
+// 原地 radix-2 复数 FFT（512 点足够小，不必上库）
+function fftRadix2(re, im) {
+  var n = re.length;
+  for (var i = 1, j = 0; i < n; i++) {
+    var bit = n >> 1;
+    for (; j & bit; bit >>= 1) { j ^= bit; }
+    j ^= bit;
+    if (i < j) {
+      var tr = re[i]; re[i] = re[j]; re[j] = tr;
+      var ti = im[i]; im[i] = im[j]; im[j] = ti;
+    }
+  }
+  for (var len = 2; len <= n; len <<= 1) {
+    var half = len >> 1;
+    var ang = -2 * Math.PI / len;
+    var wlRe = Math.cos(ang), wlIm = Math.sin(ang);
+    for (var i2 = 0; i2 < n; i2 += len) {
+      var wRe = 1, wIm = 0;
+      for (var k = 0; k < half; k++) {
+        var uRe = re[i2 + k], uIm = im[i2 + k];
+        var vRe = re[i2 + k + half] * wRe - im[i2 + k + half] * wIm;
+        var vIm = re[i2 + k + half] * wIm + im[i2 + k + half] * wRe;
+        re[i2 + k] = uRe + vRe; im[i2 + k] = uIm + vIm;
+        re[i2 + k + half] = uRe - vRe; im[i2 + k + half] = uIm - vIm;
+        var nwRe = wRe * wlRe - wIm * wlIm;
+        wIm = wRe * wlIm + wIm * wlRe; wRe = nwRe;
+      }
+    }
+  }
+}
+
+function wfPush(v) {
+  waterfall.buf[waterfall.head] = v;
+  waterfall.head = (waterfall.head + 1) % WF_BUF_SIZE;
+  if (waterfall.count < WF_BUF_SIZE) { waterfall.count++; }
+}
+
+function wfCanvasSize() {
+  var canvas = el("waterfall-canvas");
+  if (!canvas) { return null; }
+  var dpr = (typeof window !== "undefined" && window.devicePixelRatio) || 1;
+  var cssW = canvas.clientWidth || 600;
+  var cssH = 400;
+  var pxW = Math.max(1, Math.round(cssW * dpr));
+  var pxH = Math.max(1, Math.round(cssH * dpr));
+  if (canvas.width !== pxW) { canvas.width = pxW; }
+  if (canvas.height !== pxH) { canvas.height = pxH; }
+  return { canvas: canvas, g: canvas.getContext("2d"), dpr: dpr,
+           cssW: cssW, cssH: cssH };
+}
+
+function wfDrawChrome(g, cssW, cssH) {
+  var padL = 44, padR = 8, padT = 10, padB = 18;
+  var W = Math.max(10, cssW - padL - padR);
+  var H = Math.max(10, cssH - padT - padB);
+  g.strokeStyle = "#30363d";
+  g.lineWidth = 1;
+  g.strokeRect(padL, padT, W, H);
+  g.fillStyle = "#8b949e";
+  g.font = "10px system-ui";
+  var freqs = [0, 1000, 2000, 3000];
+  for (var i = 0; i < freqs.length; i++) {
+    var y = padT + H - (freqs[i] / WF_MAX_HZ) * H;
+    g.strokeStyle = "#21262d";
+    g.beginPath(); g.moveTo(padL, y); g.lineTo(padL + W, y); g.stroke();
+    g.fillText((freqs[i] / 1000).toFixed(0) + " kHz", 4, y + 3);
+  }
+  g.fillStyle = "#8b949e";
+  g.fillText("时间 →", padL + W - 40, cssH - 4);
+}
+
+function wfDrawHint() {
+  var s = wfCanvasSize();
+  if (!s) { return; }
+  var g = s.g;
+  g.setTransform(s.dpr, 0, 0, s.dpr, 0, 0);
+  g.clearRect(0, 0, s.cssW, s.cssH);
+  wfDrawChrome(g, s.cssW, s.cssH);
+  g.fillStyle = "#8b949e";
+  g.font = "12px system-ui";
+  g.textAlign = "center";
+  g.fillText(waterfall.on ? "正在采集样本…" : "实时流未开启", s.cssW / 2, s.cssH / 2);
+  g.textAlign = "start";
+}
+
+function wfAnalyze() {
+  var size = WF_FFT_SIZE, cap = WF_BUF_SIZE;
+  var start = (waterfall.head - size + cap * 2) % cap;
+  var winSum = 0;
+  for (var i = 0; i < size; i++) {
+    var w = wfWindow[i];
+    wfRe[i] = (waterfall.buf[(start + i) % cap] || 0) * w;
+    wfIm[i] = 0;
+    winSum += w;
+  }
+  fftRadix2(wfRe, wfIm);
+  var nb = size / 2 + 1;
+  for (var k = 0; k < nb; k++) {
+    var mag = Math.sqrt(wfRe[k] * wfRe[k] + wfIm[k] * wfIm[k]) * 2 / winSum;
+    waterfall.spectrum[k] = 20 * Math.log10(mag + 1e-12);
+  }
+}
+
+function wfDrawColumn() {
+  var s = wfCanvasSize();
+  if (!s) { return; }
+  var g = s.g, dpr = s.dpr;
+  var padL = 44, padR = 8, padT = 10, padB = 18;
+  var x0 = Math.round(padL * dpr);
+  var y0 = Math.round(padT * dpr);
+  var W = s.cssW - padL - padR;
+  var H = s.cssH - padT - padB;
+  var w = Math.round(W * dpr);
+  var h = Math.round(H * dpr);
+  var colPx = Math.max(1, Math.round(dpr));
+  if (w <= colPx || h <= 1) { return; }
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  // 只把频谱区左移一列，不重绘历史
+  g.drawImage(s.canvas, x0 + colPx, y0, w - colPx, h, x0, y0, w - colPx, h);
+  var nb = waterfall.spectrum.length;
+  var fstep = (waterfall.fs > 0 ? waterfall.fs : 1) / WF_FFT_SIZE;
+  var bMax = Math.min(nb - 1, Math.floor(WF_MAX_HZ / fstep));
+  if (bMax < 1) { bMax = 1; }
+  var binH = h / (bMax + 1);
+  var xCol = x0 + w - colPx;
+  for (var b = 0; b <= bMax; b++) {
+    var t = (waterfall.spectrum[b] - WF_DB_MIN) / (WF_DB_MAX - WF_DB_MIN);
+    if (t < 0) { t = 0; } else if (t > 1) { t = 1; }
+    g.fillStyle = wfPalette[Math.round(t * 255)];
+    g.fillRect(xCol, Math.round(y0 + h - (b + 1) * binH), colPx, Math.ceil(binH) + 1);
+  }
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  wfDrawChrome(g, s.cssW, s.cssH);
+}
+
+function wfClear() {
+  waterfall.head = 0;
+  waterfall.count = 0;
+  waterfall.pending = 0;
+  waterfall.frames = 0;
+  waterfall.columns = 0;
+  waterfall.frameTimes = [];
+  wfDrawHint();
+}
+
+function updateWaterfallInfo() {
+  var info = el("waterfall-info");
+  if (!info) { return; }
+  if (!waterfall.frames) {
+    info.textContent = waterfall.on ? "实时流已开启，等待帧…" : "实时流未开启";
+    return;
+  }
+  var ts = waterfall.frameTimes;
+  var fps = 0;
+  if (ts.length >= 2) {
+    var dt = ts[ts.length - 1] - ts[0];
+    if (dt > 0) { fps = (ts.length - 1) * 1000 / dt; }
+  }
+  var secs = waterfall.fs > 0 ? waterfall.count / waterfall.fs : 0;
+  info.textContent = "流：" + (waterfall.on ? "开启" : "关闭")
+    + " ／ 帧率 " + fps.toFixed(1) + " fps ／ fs " + fmt(waterfall.fs, 0) + " Hz"
+    + " ／ 缓冲 " + secs.toFixed(2) + " s（" + waterfall.count + " / "
+    + WF_BUF_SIZE + " 点）／ 瀑布列 " + waterfall.columns
+    + " ／ 分量 " + WF_AXIS_LABEL[waterfall.axis];
+}
+
+function handleStreamFrame(text) {
+  var d;
+  try { d = JSON.parse(text); } catch (e) { return; }
+  if (!d || typeof d.d !== "string" || !d.d) { return; }
+  var n = Number(d.n);
+  var fs = Number(d.fs);
+  if (!isFinite(n) || n <= 0 || !isFinite(fs) || fs <= 0) { return; }
+  var raw;
+  try { raw = b64ToInt16(d.d); } catch (e) { return; }
+  if (raw.length < n * 3) { return; }
+  var scale = Number(d.scale);
+  if (!isFinite(scale) || scale <= 0) { scale = 8192; }
+  waterfall.fs = fs;
+  waterfall.scale = scale;
+  var axis = waterfall.axis;
+  for (var i = 0; i < n; i++) {
+    var xv = raw[i * 3] / scale;
+    var yv = raw[i * 3 + 1] / scale;
+    var zv = raw[i * 3 + 2] / scale;
+    var v;
+    if (axis === "x") { v = xv; }
+    else if (axis === "y") { v = yv; }
+    else if (axis === "z") { v = zv; }
+    else { v = Math.sqrt(xv * xv + yv * yv + zv * zv); }
+    wfPush(v);
+  }
+  waterfall.frames++;
+  waterfall.frameTimes.push(Date.now());
+  if (waterfall.frameTimes.length > 32) { waterfall.frameTimes.shift(); }
+  waterfall.pending += n;
+  if (waterfall.pending > WF_HOP * 2) { waterfall.pending = WF_HOP * 2; }
+  if (waterfall.pending >= WF_HOP && waterfall.count >= WF_FFT_SIZE) {
+    waterfall.pending -= WF_HOP;
+    wfAnalyze();
+    wfDrawColumn();
+    waterfall.columns++;
+  }
+  updateWaterfallInfo();
+}
+
+function wfCommandStream(on) {
+  return sendCmd({ cmd: "wave_stream", on: on ? 1 : 0 });
+}
+
+el("waterfall-toggle").addEventListener("click", function () {
+  waterfall.on = !waterfall.on;
+  el("waterfall-toggle").textContent = waterfall.on ? "停止实时流" : "开始实时流";
+  if (waterfall.on) {
+    wfClear();
+    wfCommandStream(1);
+  } else {
+    wfCommandStream(0);
+    wfClear();
+  }
+  updateWaterfallInfo();
+});
+
+el("waterfall-axis").addEventListener("change", function () {
+  waterfall.axis = el("waterfall-axis").value;
+  wfClear();
+  updateWaterfallInfo();
+});
+
+// 离开页面时关闭连续流（keepalive 提高 unload 时请求送达概率）
+if (typeof window !== "undefined" && window.addEventListener) {
+  window.addEventListener("beforeunload", function () {
+    try {
+      fetch(API_BASE + "/api/cmd", {
+        method: "POST",
+        keepalive: true,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dev: state.latest ? state.latest.dev : "probe-01",
+                               cmd: { cmd: "wave_stream", on: 0 } })
+      });
+    } catch (e) { /* unload 阶段忽略 */ }
+  });
+  window.addEventListener("resize", wfDrawHint);
+}
+
+// ---------------------------------------------------------------------------
+// 分析服务 WebSocket
+// ---------------------------------------------------------------------------
+function applyTap(tap, stats) {
+  state.latest = tap;
+  state.taps.push({
+    t_ms: tap.t_ms, dev: tap.dev, pt: tap.pt, tap: tap.tap,
+    verdict: tap.verdict,
+    band_ratio_lh: tap.features ? tap.features.band_ratio_lh : null,
+    f_peak_hz: tap.features ? tap.features.f_peak_hz : null
+  });
+  if (state.taps.length > 200) { state.taps.shift(); }
+  renderVerdict(tap);
+  renderFeatures(tap);
+  renderWave(tap.wave);
+  renderTimeline();
+  if (stats) { renderStats(stats); }
+  el("dev").textContent = "设备：" + (tap.dev || "—");
+}
+
+function handleMessage(msg) {
+  if (msg.type === "hello") {
+    if (msg.config) { syncThreshold(msg.config.th_band_ratio); }
+    if (msg.stats) { renderStats(msg.stats); }
+    if (msg.grid) { renderGrid(msg.grid); }
+    if (msg.points && msg.points.points) { renderGrading(msg.points); }
+    if (msg.latest) { applyTap(msg.latest, msg.stats); }
+    return;
+  }
+  if (msg.type === "tap") { applyTap(msg.tap, msg.stats); return; }
+  if (msg.type === "grid") {
+    var gridMsg = msg.grid || msg.data;
+    if (gridMsg && gridMsg.cells) { renderGrid(gridMsg); } else { refreshGrid(); }
+    return;
+  }
+  if (msg.type === "points") {
+    var gridPoints = msg.grid || msg.data;
+    if (gridPoints && gridPoints.cells) { renderGrid(gridPoints); }
+    else if (msg.points && msg.points.points) { renderGrading(msg.points); }
+    else { pollDashboard(); }
+    return;
+  }
+  if (msg.type === "point_ack") { refreshCurrentPoint(); return; }
+  if (msg.type === "reset") {
+    state.taps = [];
+    state.latest = null;
+    state.tapCount = 0;
+    el("count").textContent = "0 次敲击";
+    renderTimeline();
+    return;
+  }
+  if (msg.type === "config" && msg.config) {
+    syncThreshold(msg.config.th_band_ratio);
+    return;
+  }
+  if (msg.type === "status") {
+    el("dev").textContent = "设备：" + (msg.dev || "") + " " + (msg.status || "");
+  }
+}
+
+function connectAnalyzer() {
+  var url = WS_URL;
+  var ws = new WebSocket(url);
+  state.ws = ws;
+  ws.onopen = function () {
+    state.wsRetry = 0;
+    pill("api", "分析服务：已连接 8082", "ok");
+  };
+  ws.onmessage = function (ev) {
+    var msg;
+    try { msg = JSON.parse(ev.data); } catch (e) { return; }
+    handleMessage(msg);
+  };
+  ws.onclose = function () {
+    pill("api", "分析服务：重连中…", "warn");
+    state.wsRetry = Math.min(state.wsRetry + 1, 10);
+    setTimeout(connectAnalyzer, 1000 * state.wsRetry);
+  };
+  ws.onerror = function () { pill("api", "分析服务：连接错误", "bad"); };
+}
+
+// ---------------------------------------------------------------------------
+// HTTP 轮询：配置、统计、历史、最近一次
+// ---------------------------------------------------------------------------
+function getJson(path) {
+  return fetch(API_BASE + path, { cache: "no-store" }).then(function (r) {
+    if (!r.ok) { throw new Error("HTTP " + r.status); }
+    return r.json();
+  });
+}
+
+function syncThreshold(value) {
+  if (value === null || value === undefined) { return; }
+  state.config.th_band_ratio = Number(value);
+  el("th").value = String(state.config.th_band_ratio);
+  el("th-val").textContent = state.config.th_band_ratio.toFixed(2);
+}
+
+var thTimer = null;
+el("th").addEventListener("input", function () {
+  el("th-val").textContent = Number(el("th").value).toFixed(2);
+});
+el("th").addEventListener("change", function () {
+  var value = Number(el("th").value);
+  clearTimeout(thTimer);
+  thTimer = setTimeout(function () {
+    fetch(API_BASE + "/api/config", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ th_band_ratio: value })
+    }).then(function (r) { return r.json(); }).then(function (res) {
+      if (res.ok) {
+        el("th-msg").textContent = "阈值已写入后端：" + fmt(res.data.th_band_ratio, 2)
+          + "，下一帧起生效。";
+        syncThreshold(res.data.th_band_ratio);
+      } else {
+        el("th-msg").textContent = "写入失败：" + (res.error || "未知错误");
+      }
+    }).catch(function (e) {
+      el("th-msg").textContent = "写入失败：" + e.message;
+    });
+  }, 250);
+});
+
+function sendCmd(payload) {
+  var dev = state.latest ? state.latest.dev : "probe-01";
+  return fetch(API_BASE + "/api/cmd", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ dev: dev, cmd: payload })
+  }).then(function (r) { return r.json(); });
+}
+
+function note(text) { el("cmd-msg").textContent = text; }
+
+el("btn-zero").addEventListener("click", function () {
+  sendCmd({ cmd: "zero" }).then(function (res) {
+    note(res.ok ? "已发送 zero 命令到 " + res.topic : "命令失败：" + (res.error || "未知错误"));
+  }).catch(function (e) { note("命令失败：" + e.message); });
+});
+el("btn-bonded").addEventListener("click", function () {
+  sendCmd({ cmd: "sim", mode: "bonded" }).then(function (res) {
+    note(res.ok ? "已切换模拟器到 BONDED 档" : "切换失败：" + (res.error || "未知错误"));
+  }).catch(function (e) { note("切换失败：" + e.message); });
+});
+el("btn-debond").addEventListener("click", function () {
+  sendCmd({ cmd: "sim", mode: "debond" }).then(function (res) {
+    note(res.ok ? "已切换模拟器到 DEBOND 档" : "切换失败：" + (res.error || "未知错误"));
+  }).catch(function (e) { note("切换失败：" + e.message); });
+});
+
+function loadInitial() {
+  getJson("/api/config").then(function (res) {
+    if (res.ok) { syncThreshold(res.data.th_band_ratio); }
+  }).catch(function () { pill("api", "分析服务：离线", "bad"); });
+  getJson("/api/stats").then(function (res) {
+    if (res.ok) { renderStats(res.data); }
+  }).catch(function () {});
+  getJson("/api/latest").then(function (res) {
+    if (res.ok && res.data) { applyTap(res.data, null); }
+  }).catch(function () {});
+  startPolling();
+  refreshGrid();
+  refreshCurrentPoint();
+  refreshPoints();
+  renderRawWave();
+  wfDrawHint();
+  updateWaterfallInfo();
+  getJson("/api/history?limit=20").then(function (res) {
+    if (!res.ok) { return; }
+    state.taps = res.rows.map(function (r) {
+      return { t_ms: r.t_ms, dev: r.dev, tap: r.tap, verdict: r.verdict,
+               band_ratio_lh: r.band_ratio_lh, f_peak_hz: r.f_peak_hz };
+    });
+    renderTimeline();
+  }).catch(function () {});
+}
+
+connectAnalyzer();
+loadInitial();
+</script>
+</body>
+</html>

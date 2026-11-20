@@ -1,0 +1,14 @@
+# Tap-test probe partition map.
+#
+# The single-app layout gives the application 1 MB, which the firmware outgrew:
+# the joystick menu, the WiFi station, the MQTT client and the tap-waveform
+# publisher together reach ~1.03 MB.  A 1.5 MB factory partition leaves about
+# 500 kB of headroom for the analysis screens still to come.
+#
+# Offsets are unchanged from the stock 1 MB map (nvs 0x9000, phy 0xf000,
+# factory 0x10000), so reflashing the app and this table is enough; no erase is
+# required and NVS survives.
+# Name,   Type, SubType, Offset,  Size, Flags
+nvs,      data, nvs,     0x9000,  0x6000,
+phy_init, data, phy,     0xf000,  0x1000,
+factory,  app,  factory, 0x10000, 0x180000,

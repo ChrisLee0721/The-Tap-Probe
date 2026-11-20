@@ -40,3 +40,27 @@ desktop.ini
 # redistributed — they are publicly retrievable from the URLs in the
 # appendix, and the same reasoning as for the ETSI documents applies.
 _sources/wsos/*.html
+# ---- local build secrets ----------------------------------------------
+# probe_config.h includes this when present; the committed defaults are
+# placeholders, so no live SSID or password ever reaches the repository.
+05_firmware/main/probe_secrets.h
+
+# ---- course assessment sheets -----------------------------------------
+# VTC module material, same reasoning as the entry at the top of this file.
+EEE4163 MAS.pdf
+EEE4483 MAS.pdf
+EEE4483 MAS (1).pdf
+
+# ---- portable deploy bundle: binary artefacts -------------------------
+# The bundle's sources are tracked; the offline wheel cache (18 MB) and the
+# packaged zip are regenerated on demand, see tap_probe_deploy/README.md.
+tap_probe_deploy/wheels/
+tap_probe_deploy.zip
+
+# ---- runtime state and logs -------------------------------------------
+05_firmware/tools/mqtt_demo/*.log
+05_firmware/tools/mqtt_demo/.session/
+05_firmware/tools/mqtt_demo/.session_archive/
+
+# ---- throwaway debugging scripts --------------------------------------
+_scratch/

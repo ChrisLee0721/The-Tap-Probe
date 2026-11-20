@@ -149,6 +149,33 @@
 #define PROBE_PIN_TOF_XSHUT    GPIO_NUM_42  /* optional, hold high if unused   */
 #define PROBE_I2C_PORT        0
 #define PROBE_I2C_FREQ_HZ     400000
+
+/* ---- Accelerometer bus ---------------------------------------------------
+ *
+ * I2C cannot carry the full 6.66 kHz output rate.  One sample is six data
+ * bytes = 48 data bits plus six ACK bits = 54 bus bits, which at 400 kHz is
+ * 135 us against a 150 us sample period: 90 % of the bus before a single
+ * address byte or a VL53L1X ranging cycle is counted.  SPI at 10 MHz moves the
+ * same sample in about 6 us, so the part is switched to SPI and the I2C bus is
+ * left to the time-of-flight sensor.
+ *
+ * These four pins are free in this build: the legacy I2S microphone code in
+ * app_main.c belongs to a different environment and is no longer built.
+ */
+#define PROBE_IMU_USE_SPI     1
+#define PROBE_PIN_IMU_SCLK    GPIO_NUM_1
+#define PROBE_PIN_IMU_MOSI    GPIO_NUM_2
+#define PROBE_PIN_IMU_MISO    GPIO_NUM_4
+#define PROBE_PIN_IMU_CS      GPIO_NUM_5
+#define PROBE_IMU_SPI_HOST    SPI3_HOST
+#define PROBE_IMU_SPI_HZ      (10 * 1000 * 1000)
+/* The register-polling path is paced from esp_timer.  The period is set a few
+ * microseconds LONGER than the sensor's own 150.2 us sample interval (6.66 kHz):
+ * a tick that lands early finds the data-ready flag clear and has to be
+ * skipped, which costs a whole sample, whereas a tick that lands late simply
+ * picks up the newest sample. 155 us trades 3 % of the samples for zero
+ * duplicate reads. */
+#define PROBE_IMU_SAMPLE_US   150
 #define PROBE_LSM6DS3_ADDR_1  0x6A          /* SA0/SDO tied low               */
 #define PROBE_LSM6DS3_ADDR_2  0x6B          /* SA0/SDO tied high              */
 #define PROBE_VL53L0X_ADDR    0x29
@@ -167,6 +194,37 @@
 #define PROBE_PIN_TFT2_RST    GPIO_NUM_6
 
 /* --- Two-axis joystick module --- */
+/* Joystick thresholds.  The module outputs roughly 0..4095 with the stick
+ * centred near 2048; the release band is deliberately wide so that a stick
+ * which does not spring fully back cannot produce a permanent direction. */
+#define PROBE_JOY_ADC_MAX           4095
+#define PROBE_JOY_RELEASE_LOW       1500
+#define PROBE_JOY_RELEASE_HIGH      2600
+#define PROBE_JOY_SAMPLE_MS         20
+#define PROBE_JOY_SW_DEBOUNCE_MS    40
+/* Stick conditioning.
+ *
+ * The joystick shares the enclosure with the accelerometer, so a tap on the
+ * housing shakes the stick and the ADC output spikes for a few milliseconds --
+ * long enough for a single sample to look like a full deflection and move the
+ * menu selection.  Three defences, cheapest first:
+ *   1. median-of-5 on each axis, which removes a spike without lagging a real
+ *      deflection by more than two sample periods;
+ *   2. the direction has to persist for N samples before it is armed, so a
+ *      one-off transient never becomes a move;
+ *   3. any stick activity within PROBE_TAP_MUTE_MS of a tap is discarded, which
+ *      covers the mechanical ring-down rather than just the impact.
+ *
+ * The mute is capped by a budget.  A burst of heavy strikes re-arms the window
+ * every PROBE_TAP_REARM_MS, so an uncapped mute (it was 400 ms) stayed asserted
+ * for the whole burst and the menu went deaf -- a hard enough tap made the
+ * instrument look locked up.  The budget bounds the total deaf time of one
+ * burst no matter how many strikes land in it. */
+#define PROBE_JOY_MEDIAN_N          5
+#define PROBE_JOY_CONFIRM_SAMPLES   3
+#define PROBE_TAP_MUTE_MS           150
+#define PROBE_TAP_MUTE_BUDGET_MS    250
+
 #define PROBE_PIN_JOYSTICK_X  GPIO_NUM_10   /* ADC input, 0..3.3 V            */
 #define PROBE_PIN_JOYSTICK_Y  GPIO_NUM_11   /* ADC input, 0..3.3 V            */
 #define PROBE_PIN_JOYSTICK_SW GPIO_NUM_46   /* input-only; active low          */
@@ -397,6 +455,31 @@
  * 9. NETWORKING
  * ========================================================================= */
 
+/* WiFi credentials.
+ *
+ * This repository is public, so the committed defaults are placeholders and
+ * no real access point is published.  Two ways to give a board its AP:
+ *
+ *   1. Drop a probe_secrets.h next to this header (it is git-ignored):
+ *          #define PROBE_SECRETS_SSID "my-ssid"
+ *          #define PROBE_SECRETS_PASS "my-password"
+ *      The build then uses those strings instead of the placeholders.
+ *   2. Leave it out and pick the AP once from the joystick menu (WIFI page).
+ *      What the probe joined is written to NVS and reused on every boot, so
+ *      this is a one-time step per board, not per power cycle. */
+#if defined(__has_include)
+#  if __has_include("probe_secrets.h")
+#    include "probe_secrets.h"
+#  endif
+#endif
+#ifdef PROBE_SECRETS_SSID
+#  define PROBE_WIFI_SSID_DEFAULT   PROBE_SECRETS_SSID
+#  define PROBE_WIFI_PASS_DEFAULT   PROBE_SECRETS_PASS
+#else
+#  define PROBE_WIFI_SSID_DEFAULT   "your-ssid"
+#  define PROBE_WIFI_PASS_DEFAULT   ""
+#endif
+
 #define PROBE_WIFI_MAX_RETRY        8       /* per backoff round                */
 #define PROBE_WIFI_BACKOFF_MIN_MS   1000
 #define PROBE_WIFI_BACKOFF_MAX_MS   60000
@@ -453,7 +536,7 @@
  * ========================================================================= */
 
 #define PROBE_DEFAULT_DEV_PREFIX    "probe-"
-#define PROBE_DEFAULT_DEV_ID        "probe-unprovisioned"
+#define PROBE_DEFAULT_DEV_ID        "probe-01"
 
 /* Compile-time guard: the FFT length must match the log2 used by the
  * bit-reversal table, and must be a power of two. */
@@ -485,4 +568,61 @@
 #  warning "neither CONFIG_FREERTOS_HZ nor configTICK_RATE_HZ is defined at this point; the tick-rate guard did not run. Confirm the project's FreeRTOS tick rate is 1000 Hz (sdkconfig.defaults)."
 #endif
 
+/* =========================================================================
+ * MQTT BROKER DEFAULTS
+ * Default target: a Beaver IoT broker on the same LAN as this rig.  The
+ * broker port used by a self-hosted Beaver deployment is 1883; the Web UI
+ * itself is served on 8080 and is NOT an MQTT endpoint -- do not publish to it.
+ * Override at run time with the console command `setmqtt <uri>` (stored in NVS).
+ * ========================================================================= */
+#define PROBE_MQTT_BROKER_URI_DEFAULT   "mqtt://192.168.3.12:1883"
+#define PROBE_MQTT_CLIENT_ID_PREFIX     "probe-"
+#define PROBE_MQTT_STATUS_PERIOD_MS     30000
+
+/* =========================================================================
+ * 12. TAP WAVEFORM CAPTURE
+ *
+ * The web analyser needs the raw acceleration waveform of a tap, not just a
+ * summary.  The accelerometer therefore runs from its own FIFO and a triggered
+ * window is published as one base64 message (see tools/mqtt_demo/PROTOCOL.md).
+ * ========================================================================= */
+
+#define PROBE_IMU_ODR_HZ            6660.0f   /* CTRL1_XL ODR_XL = 1010b        */
+#define PROBE_IMU_LSB_PER_G         8192.0f   /* +/-4 g full scale: 0.122 mg/LSB */
+/* The FIFO is hardware-buffered (4096 words = 1365 samples = 205 ms), so the
+ * capture task only has to wake every 20 ms and pull one burst: about 133
+ * samples = 1600 bytes, roughly 1.3 ms of SPI at 10 MHz.  That leaves the CPU
+ * idle instead of polling the output registers. */
+#define PROBE_FIFO_POLL_MS          20        /* FIFO drain period (133 sets)  */
+#define PROBE_FIFO_BATCH_MAX        256       /* sample sets drained per poll  */
+
+#define PROBE_TAP_RING_LEN          2048      /* analysis ring, one frame = xyz */
+/* At 6.5 kHz a 512-frame window is 79 ms, while a tap on tile rings down with
+ * a measured time constant near 58 ms: that is barely one time constant, which
+ * is not enough to fit decay_tau.  1024 frames is 158 ms, about 2.7 tau.  The
+ * payload grows to 6 kB of samples, 8 kB as base64; see the MQTT out_size. */
+#define PROBE_TAP_WINDOW            1024      /* frames published per tap      */
+#define PROBE_TAP_PRE               128       /* frames kept before the trigger (~20 ms) */
+#define PROBE_TAP_THRESH_G          0.25f     /* default trigger level, g      */
+#define PROBE_TAP_REARM_MS          250       /* refractory period             */
+#define PROBE_TAP_MIN_G             0.05f     /* below this a window is noise  */
+
+#define PROBE_TOPIC_WAVEFORM        "waveform"
+#define PROBE_TOPIC_CMD             "cmd"
+/* Continuous 6.66 kHz sample batches (20 ms each) for live spectrograms. */
+#define PROBE_TOPIC_STREAM          "stream"
+
+/* Menu geometry.  Items are a real 5x7 font drawn at scale 2 (10x14 px glyph,
+ * 12 px advance), so six rows fit under the 14 px title bar with room for the
+ * value bar and the key legend. */
+#define PROBE_MENU_ROWS             6
+#define PROBE_MENU_ROW_PITCH        18
+#define PROBE_MENU_TITLE_H          14
+
+/* Menu-adjustable defaults.  These are run-time state, not compile-time
+ * constants, but the power-on values live here with everything else. */
+#define PROBE_DEFAULT_MQTT_QOS      0
+#define PROBE_DEFAULT_PUB_PERIOD_MS 2000
+
 #endif /* PROBE_CONFIG_H */
+

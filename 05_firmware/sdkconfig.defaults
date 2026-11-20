@@ -39,6 +39,14 @@ CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=y
 # has no unbounded loops, and the watchdog is the check on that claim.
 CONFIG_ESP_TASK_WDT_INIT=y
 
+# --- Application partition size ----------------------------------------------
+# The single-app layout gives the application 1 MB, which reached 97.8% full
+# once the joystick menu, the WiFi/MQTT client and the tap-waveform publisher
+# were all in the image.  SINGLE_APP_LARGE raises it to 1.5 MB.  The factory
+# partition still starts at 0x10000, so this does not move any existing
+# partition: reflashing the app is enough, an erase is not required.
+CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE=y
+
 # --- WiFi receive buffers ----------------------------------------------------
 # The probe publishes continuously during a survey; the default pool is tight
 # once MQTT keepalives share the radio.
